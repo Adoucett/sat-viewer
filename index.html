@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet Constellation Viewer</title>
+
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://cdn.jsdelivr.net/npm/satellite.js@6.0.2/dist/satellite.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Source+Code+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --planet-teal: #009db1;
+            --planet-dark: #363f43;
+            --planet-grey: #919698;
+            --planet-bg: #060610;
+            --card-bg: rgba(16, 22, 28, 0.88);
+            --card-border: rgba(0, 157, 177, 0.12);
+            --panel-bg: rgba(12, 16, 22, 0.92);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Montserrat', sans-serif; background: var(--planet-bg); color: #fff; overflow: hidden; height: 100vh; width: 100vw; }
+        #map { position: absolute; inset: 0; }
+        #map .mapboxgl-ctrl-bottom-right, #map .mapboxgl-ctrl-bottom-left { display: none; }
+
+        #vignette { position: fixed; inset: 0; z-index: 2; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 48%, transparent 55%, rgba(4,4,14,0.45) 100%); }
+
+        /* Loading */
+        #loading { position: fixed; inset: 0; z-index: 1000; background: var(--planet-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 1s ease, visibility 1s; }
+        #loading.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .load-planet { width: 48px; height: 48px; position: relative; }
+        .load-planet .core { width: 18px; height: 18px; background: var(--planet-teal); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+        .load-planet .ring { position: absolute; inset: 0; border: 2px solid rgba(0,157,177,0.15); border-top-color: var(--planet-teal); border-radius: 50%; animation: spin 1.2s linear infinite; }
+        .load-planet .ring2 { position: absolute; inset: -6px; border: 1px solid rgba(0,157,177,0.06); border-top-color: rgba(0,157,177,0.3); border-radius: 50%; animation: spin 2.4s linear infinite reverse; }
+        #loading p { margin-top: 22px; font-size: 10px; color: var(--planet-grey); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Logo */
+        #logo { position: fixed; top: 20px; left: 22px; z-index: 50; display: flex; align-items: center; gap: 10px; transition: opacity 0.5s; }
+        #logo svg { height: 22px; }
+        #logo .divider { width: 1px; height: 18px; background: rgba(255,255,255,0.1); }
+        #logo .subtitle { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; text-transform: uppercase; }
+
+        /* Settings Toggle */
+        #settings-toggle { position: fixed; top: 54px; left: 22px; z-index: 56; width: 32px; height: 32px; background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--planet-grey); font-size: 15px; backdrop-filter: blur(12px); transition: all 0.3s; }
+        #settings-toggle:hover { color: #fff; border-color: rgba(0,157,177,0.35); }
+        #settings-toggle.open { color: var(--planet-teal); border-color: rgba(0,157,177,0.35); }
+
+        /* Settings Panel */
+        #settings-panel { position: fixed; top: 54px; left: 64px; z-index: 55; width: 280px; background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 0; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transform: translateX(-340px); opacity: 0; transition: transform 0.3s ease, opacity 0.25s ease; max-height: calc(100vh - 72px); overflow-y: auto; overflow-x: hidden; }
+        #settings-panel.open { transform: translateX(0); opacity: 1; }
+        #settings-panel::-webkit-scrollbar { width: 3px; }
+        #settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+        .settings-section { padding: 12px 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .settings-section:last-child { border-bottom: none; }
+        .settings-section-title { font-size: 8.5px; font-weight: 700; color: rgba(255,255,255,0.25); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 8px; }
+
+        .toggle-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; transition: opacity 0.2s; }
+        .toggle-row.off { opacity: 0.3; }
+        .toggle-indicator { width: 9px; height: 9px; border-radius: 50%; border: 2px solid currentColor; transition: background 0.2s; flex-shrink: 0; }
+        .toggle-row:not(.off) .toggle-indicator { background: currentColor; }
+        .toggle-label { font-size: 10.5px; font-weight: 600; color: #fff; flex: 1; }
+        .toggle-count { font-family: 'Source Code Pro', monospace; font-size: 10px; color: var(--planet-grey); }
+
+        .slider-row { margin-bottom: 8px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+        .slider-label { font-size: 9.5px; color: rgba(255,255,255,0.45); font-weight: 500; }
+        .slider-value { font-family: 'Source Code Pro', monospace; font-size: 9.5px; color: var(--planet-teal); font-weight: 500; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 2px; background: rgba(255,255,255,0.06); border-radius: 2px; outline: none; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--planet-teal); cursor: pointer; box-shadow: 0 0 8px rgba(0,157,177,0.35); }
+        input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: var(--planet-teal); cursor: pointer; }
+
+        .settings-btn { display: block; width: 100%; padding: 6px 10px; margin-bottom: 5px; background: rgba(0,157,177,0.06); border: 1px solid rgba(0,157,177,0.15); border-radius: 5px; cursor: pointer; font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 500; color: var(--planet-teal); text-align: center; transition: all 0.2s; }
+        .settings-btn:hover { background: rgba(0,157,177,0.12); border-color: rgba(0,157,177,0.3); }
+        .epoch-info { font-family: 'Source Code Pro', monospace; font-size: 9.5px; color: var(--planet-grey); margin-bottom: 6px; line-height: 1.6; }
+
+        .mini-toggle { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 2px 8px; font-family: 'Source Code Pro', monospace; font-size: 8.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .mini-toggle.on { background: rgba(0,157,177,0.15); border-color: rgba(0,157,177,0.3); color: var(--planet-teal); }
+        .mini-toggle:not(.on) { color: rgba(255,255,255,0.3); }
+
+        .color-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+        .color-swatch { -webkit-appearance: none; width: 22px; height: 22px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; padding: 0; background: none; }
+        .color-swatch::-webkit-color-swatch-wrapper { padding: 1px; }
+        .color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+        .color-swatch::-moz-color-swatch { border: none; border-radius: 3px; }
+        .color-name { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; flex: 1; }
+        .color-hex { font-family: 'Source Code Pro', monospace; font-size: 9px; color: rgba(255,255,255,0.2); }
+
+        .basemap-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; transition: opacity 0.15s; }
+        .basemap-row:hover { opacity: 0.85; }
+        .basemap-radio { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; transition: all 0.2s; }
+        .basemap-row.active .basemap-radio { border-color: var(--planet-teal); background: var(--planet-teal); }
+        .basemap-name { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; }
+        .basemap-row.active .basemap-name { color: rgba(255,255,255,0.8); }
+
+        /* Constellation Cards */
+        #cards { position: fixed; right: 22px; top: 50%; transform: translateY(-50%); z-index: 50; display: flex; flex-direction: column; gap: 5px; transition: opacity 0.5s; }
+        #sat-header { text-align: right; margin-bottom: 8px; }
+        #sat-header .total-count { font-family: 'Source Code Pro', monospace; font-size: 36px; font-weight: 300; color: rgba(255,255,255,0.85); letter-spacing: -0.02em; }
+        #sat-header .total-label { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.25); letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-top: -2px; }
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 9px; padding: 10px 14px; min-width: 168px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); cursor: pointer; user-select: none; transition: all 0.3s; }
+        .card:hover { border-color: rgba(0,157,177,0.3); transform: translateX(-3px); }
+        .card.off { opacity: 0.2; }
+        .card.off:hover { opacity: 0.35; }
+        .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
+        .card-name { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+        .card-count { margin-left: auto; font-family: 'Source Code Pro', monospace; font-size: 17px; font-weight: 600; }
+        .card-meta { display: flex; gap: 12px; font-size: 9px; color: var(--planet-grey); font-weight: 400; }
+        .card-meta .v { color: rgba(255,255,255,0.6); font-weight: 500; }
+
+        /* Timeline Bar */
+        #timeline { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; background: linear-gradient(to top, rgba(6,6,16,0.95) 0%, rgba(6,6,16,0.85) 70%, rgba(6,6,16,0) 100%); padding: 0 22px 14px; transition: opacity 0.5s; }
+        .tl-scrub-container { position: relative; height: 28px; margin-bottom: 6px; cursor: pointer; }
+        .tl-track { position: absolute; left: 0; right: 0; top: 13px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; }
+        .tl-track-fill { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, rgba(0,157,177,0.05), rgba(0,157,177,0.35)); border-radius: 1px; transition: width 0.05s linear; }
+        .tl-thumb { position: absolute; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--planet-teal); box-shadow: 0 0 10px rgba(0,157,177,0.5), 0 0 20px rgba(0,157,177,0.2); transform: translateX(-7px); pointer-events: none; will-change: left; }
+        .tl-thumb:hover, .tl-scrub-container:hover .tl-thumb { box-shadow: 0 0 14px rgba(0,157,177,0.7), 0 0 30px rgba(0,157,177,0.3); }
+        .tl-ticks { position: absolute; left: 0; right: 0; top: 18px; display: flex; justify-content: space-between; pointer-events: none; }
+        .tl-tick { font-family: 'Source Code Pro', monospace; font-size: 8px; color: rgba(255,255,255,0.12); font-weight: 400; }
+        .tl-bar { display: flex; align-items: center; gap: 6px; }
+        .tl-play { background: none; border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.2s; flex-shrink: 0; }
+        .tl-play:hover { border-color: var(--planet-teal); color: var(--planet-teal); }
+        .tl-speeds { display: flex; gap: 2px; }
+        .tl-speed { background: none; border: none; color: rgba(255,255,255,0.25); font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 500; padding: 4px 7px; border-radius: 4px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+        .tl-speed:hover { color: rgba(255,255,255,0.6); }
+        .tl-speed.active { color: var(--planet-teal); background: rgba(0,157,177,0.08); }
+        .tl-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.04); margin: 0 4px; flex-shrink: 0; }
+        .tl-range-btns { display: flex; gap: 2px; }
+        .tl-range { background: none; border: none; font-family: 'Source Code Pro', monospace; font-size: 8.5px; color: rgba(255,255,255,0.2); padding: 3px 5px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+        .tl-range:hover { color: rgba(255,255,255,0.5); }
+        .tl-range.active { color: var(--planet-teal); background: rgba(0,157,177,0.06); }
+        .tl-spacer { flex: 1; }
+        .tl-custom-speed { width: 52px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: rgba(255,255,255,0.7); font-family: 'Source Code Pro', monospace; font-size: 9px; font-weight: 500; padding: 3px 5px; text-align: center; outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
+        .tl-custom-speed::-webkit-inner-spin-button, .tl-custom-speed::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .tl-custom-speed:focus { border-color: var(--planet-teal); color: var(--planet-teal); }
+        .tl-custom-speed::placeholder { color: rgba(255,255,255,0.15); }
+        .tl-speed-label { font-family: 'Source Code Pro', monospace; font-size: 9px; color: rgba(0,157,177,0.6); font-weight: 500; white-space: nowrap; }
+        .tl-clock { text-align: right; flex-shrink: 0; }
+        .tl-clock-time { font-family: 'Source Code Pro', monospace; font-size: 22px; font-weight: 300; color: rgba(255,255,255,0.85); letter-spacing: 0.01em; line-height: 1; }
+        .tl-clock-date { font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 400; color: var(--planet-grey); margin-top: 1px; }
+        .tl-source { font-size: 8px; color: rgba(255,255,255,0.12); margin-top: 1px; letter-spacing: 0.03em; }
+
+        /* Top-right buttons */
+        .top-right-btns { position: fixed; top: 20px; right: 22px; z-index: 50; display: flex; gap: 5px; transition: opacity 0.5s; }
+        .top-btn { background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 7px; padding: 6px 11px; color: var(--planet-grey); font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; backdrop-filter: blur(12px); transition: all 0.3s; }
+        .top-btn:hover { color: #fff; border-color: rgba(0,157,177,0.35); }
+
+        /* Cinema Mode */
+        #cinema-time { position: fixed; bottom: 20px; right: 22px; z-index: 50; font-family: 'Source Code Pro', monospace; font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.25); display: none; }
+        #cinema-logo { position: fixed; bottom: 20px; left: 22px; z-index: 50; display: none; opacity: 0.15; }
+        #cinema-logo svg { height: 14px; }
+        body.cinema #logo, body.cinema #cards, body.cinema #timeline,
+        body.cinema .top-right-btns, body.cinema #settings-toggle,
+        body.cinema #settings-panel, body.cinema #vignette { opacity: 0; pointer-events: none; }
+        body.cinema #cinema-time { display: block; }
+        body.cinema #cinema-logo { display: block; }
+
+        /* Recording */
+        #rec-indicator { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(200, 30, 30, 0.85); color: #fff; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; padding: 4px 14px; border-radius: 14px; display: none; align-items: center; gap: 6px; backdrop-filter: blur(8px); }
+        #rec-indicator .dot { width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: rec-pulse 1s ease infinite; }
+        @keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }
+
+        /* Tooltip */
+        .sat-tooltip { position: absolute; background: rgba(10, 14, 20, 0.94); border: 1px solid rgba(0,157,177,0.2); border-radius: 7px; padding: 9px 13px; pointer-events: none; z-index: 200; font-size: 10.5px; line-height: 1.5; backdrop-filter: blur(10px); max-width: 250px; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+        /* Pelican pulse keyframes */
+        @keyframes pelican-glow { 0%,100% { box-shadow: 0 0 10px #d4d8ff, 0 0 20px #d4d8ff; } 50% { box-shadow: 0 0 14px #d4d8ff, 0 0 28px rgba(212,216,255,0.6); } }
+        .card[data-const="PELICAN"] .card-dot { animation: pelican-glow 2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <div class="load-planet"><div class="core"></div><div class="ring"></div><div class="ring2"></div></div>
+    <p id="load-status">Initializing</p>
+</div>
+
+<div id="logo">
+    <svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="12" r="4.5" fill="#009db1"/>
+        <path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/>
+    </svg>
+    <div class="divider"></div>
+    <span class="subtitle">Constellation Viewer</span>
+</div>
+
+<div id="settings-toggle" title="Display Settings (S)">&#9881;</div>
+
+<div id="settings-panel">
+    <div class="settings-section">
+        <div class="settings-section-title">Constellations</div>
+        <div id="vis-toggles"></div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Colors</div>
+        <div id="color-pickers"></div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Satellites</div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Dot Size</span><span class="slider-value" id="val-dot-size">1.0&times;</span></div>
+            <input type="range" id="sl-dot-size" min="0.3" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Glow Intensity</span><span class="slider-value" id="val-glow">1.0&times;</span></div>
+            <input type="range" id="sl-glow" min="0" max="4" step="0.1" value="1.0">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Altitude Offset</span><span class="slider-value" id="val-alt">1.0&times;</span></div>
+            <input type="range" id="sl-alt" min="0" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Labels</span><button class="mini-toggle" id="btn-labels">OFF</button></div>
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Label Size</span><span class="slider-value" id="val-label-size">9</span></div>
+            <input type="range" id="sl-label-size" min="6" max="18" step="1" value="9">
+        </div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Ground Tracks</div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Trail Length</span><span class="slider-value" id="val-trail-len">1.0&times;</span></div>
+            <input type="range" id="sl-trail-len" min="0" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Trail Width</span><span class="slider-value" id="val-trail-w">1.0&times;</span></div>
+            <input type="range" id="sl-trail-w" min="0.2" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Trail Opacity</span><span class="slider-value" id="val-trail-op">1.0&times;</span></div>
+            <input type="range" id="sl-trail-op" min="0" max="2" step="0.05" value="1.0">
+        </div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Atmosphere</div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Star Intensity</span><span class="slider-value" id="val-stars">0.18</span></div>
+            <input type="range" id="sl-stars" min="0" max="1" step="0.02" value="0.18">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Atmosphere Haze</span><span class="slider-value" id="val-haze">0.04</span></div>
+            <input type="range" id="sl-haze" min="0" max="0.15" step="0.005" value="0.035">
+        </div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Space Brightness</span><span class="slider-value" id="val-space">1.0&times;</span></div>
+            <input type="range" id="sl-space" min="0" max="3" step="0.1" value="1.0">
+        </div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Camera</div>
+        <div class="slider-row">
+            <div class="slider-header"><span class="slider-label">Auto-Rotate Speed</span><span class="slider-value" id="val-rotate">1.0&times;</span></div>
+            <input type="range" id="sl-rotate" min="0" max="5" step="0.1" value="1.0">
+        </div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Basemap</div>
+        <div id="basemap-list"></div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Orbital Data</div>
+        <div class="epoch-info" id="epoch-info">Loading...</div>
+        <button class="settings-btn" id="btn-jump-epoch">Jump to TLE Epoch</button>
+        <button class="settings-btn" id="btn-jump-now">Jump to Now</button>
+    </div>
+</div>
+
+<div id="cards"></div>
+
+<div id="timeline">
+    <div class="tl-scrub-container" id="tl-scrub">
+        <div class="tl-track"><div class="tl-track-fill" id="tl-fill"></div></div>
+        <div class="tl-thumb" id="tl-thumb"></div>
+        <div class="tl-ticks" id="tl-ticks"></div>
+    </div>
+    <div class="tl-bar">
+        <button class="tl-play" id="tl-play">&#9654;</button>
+        <div class="tl-speeds" id="tl-speeds">
+            <button class="tl-speed" data-speed="1">1&times;</button>
+            <button class="tl-speed" data-speed="10">10&times;</button>
+            <button class="tl-speed active" data-speed="60">60&times;</button>
+            <button class="tl-speed" data-speed="120">120&times;</button>
+            <button class="tl-speed" data-speed="300">300&times;</button>
+            <button class="tl-speed" data-speed="600">600&times;</button>
+            <button class="tl-speed" data-speed="3600">3600&times;</button>
+        </div>
+        <input type="number" class="tl-custom-speed" id="tl-custom" min="1" max="7200" placeholder="&times;" title="Custom speed multiplier">
+        <div class="tl-divider"></div>
+        <div class="tl-range-btns">
+            <button class="tl-range" data-hours="1">1h</button>
+            <button class="tl-range" data-hours="6">6h</button>
+            <button class="tl-range active" data-hours="24">24h</button>
+            <button class="tl-range" data-hours="48">48h</button>
+        </div>
+        <div class="tl-divider"></div>
+        <span class="tl-speed-label" id="tl-speed-label">60&times; speed</span>
+        <div class="tl-spacer"></div>
+        <div class="tl-clock">
+            <div class="tl-clock-time" id="tl-clock-time">--:--:-- UTC</div>
+            <div class="tl-clock-date" id="tl-clock-date">--- --- ----</div>
+            <div class="tl-source" id="tl-source"></div>
+        </div>
+    </div>
+</div>
+
+<div class="top-right-btns">
+    <button class="top-btn" id="btn-cinema">Cinema (C)</button>
+    <button class="top-btn" id="btn-rec">Record (R)</button>
+</div>
+
+<div id="cinema-time"></div>
+<div id="cinema-logo">
+    <svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="12" r="4.5" fill="#009db1"/>
+        <path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/>
+    </svg>
+</div>
+<div id="rec-indicator"><div class="dot"></div><span>REC</span></div>
+<div id="sat-tooltip" class="sat-tooltip"></div>
+<div id="vignette"></div>
+<div id="map"></div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════
+
+const CONSTELLATIONS = {
+    PELICAN: {
+        label: 'Pelican', altKm: 440, gsd: '30 cm', swathKm: 32,
+        color: '#d4d8ff',
+        haloRadius: 30, haloBlur: 1,
+        glowRadius: 15, glowBlur: 0.5,
+        dotRadius: 6.5, dotOpacity: 0.95,
+        trailWidth: 2.2, trailMinutes: 14,
+        showTrailAtZoom: 0, altOffset: -6
+    },
+    SKYSAT: {
+        label: 'SkySat', altKm: 450, gsd: '50 cm', swathKm: 8,
+        color: '#2bc4d8',
+        haloRadius: 22, haloBlur: 1,
+        glowRadius: 11, glowBlur: 0.55,
+        dotRadius: 4.5, dotOpacity: 0.95,
+        trailWidth: 1.6, trailMinutes: 10,
+        showTrailAtZoom: 0, altOffset: -5
+    },
+    TANAGER: {
+        label: 'Tanager', altKm: 525, gsd: 'Hyperspectral', swathKm: 190,
+        color: '#f0b030',
+        haloRadius: 24, haloBlur: 1,
+        glowRadius: 13, glowBlur: 0.5,
+        dotRadius: 5.5, dotOpacity: 0.95,
+        trailWidth: 1.8, trailMinutes: 12,
+        showTrailAtZoom: 0, altOffset: -6
+    },
+    FLOCK: {
+        label: 'SuperDove', altKm: 500, gsd: '3\u20134 m', swathKm: 32,
+        color: '#009db1',
+        haloRadius: 12, haloBlur: 1,
+        glowRadius: 6, glowBlur: 0.6,
+        dotRadius: 2.4, dotOpacity: 0.88,
+        trailWidth: 1.0, trailMinutes: 5,
+        showTrailAtZoom: 2.2, altOffset: -3
+    }
+};
+
+const CONSTELLATION_ORDER = ['PELICAN', 'SKYSAT', 'TANAGER', 'FLOCK'];
+
+function deriveColors(cfg) {
+    const rgb = hexToRgb(cfg.color);
+    cfg._haloColor = `rgba(${rgb},0.07)`;
+    cfg._glowColor = `rgba(${rgb},0.26)`;
+    cfg._trailAlphas = [0, 0.06, 0.3, 0.55];
+}
+
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r},${g},${b}`;
+}
+
+CONSTELLATION_ORDER.forEach(k => deriveColors(CONSTELLATIONS[k]));
+
+const SAT_NAME_LOOKUP = {
+    '58296':'Pelican-1','62631':'Pelican-2','65315':'Pelican-3',
+    '65316':'Pelican-4','66667':'Pelican-5','66703':'Pelican-6',
+    '39418':'SkySat-A','40072':'SkySat-B','41601':'SkySat-C1',
+    '41773':'SkySat-C2','41774':'SkySat-C3','41771':'SkySat-C4',
+    '41772':'SkySat-C5','42992':'SkySat-C6','42991':'SkySat-C7',
+    '42990':'SkySat-C8','42989':'SkySat-C9','42988':'SkySat-C10',
+    '42987':'SkySat-C11','43797':'SkySat-C12','43802':'SkySat-C13',
+    '60507':'Tanager-1'
+};
+const TRAIL_SAMPLES = 20;
+
+const BASEMAPS = [
+    { id: 'dark-v11',      label: 'Mapbox Dark',       style: 'mapbox://styles/mapbox/dark-v11' },
+    { id: 'planet-basemap', label: 'Planet Basemap',   style: 'mapbox://styles/adoucett/cmmy6m4kx007701s9ghg51f0n' },
+    { id: 'planet-dark',   label: 'Planet Dark',       style: 'mapbox://styles/adoucett/cmmy6so6j004t01s7gu0x8zr3' },
+    { id: 'satellite-v9',  label: 'Satellite Imagery',  style: 'mapbox://styles/mapbox/satellite-v9' },
+    { id: 'nav-night',     label: 'Navigation Night',  style: 'mapbox://styles/mapbox/navigation-night-v1' },
+];
+let activeBasemap = 'dark-v11';
+let mapReady = false;
+
+// ════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════
+
+let allSatellites = [];
+let simTime = new Date();
+let simSpeed = 60;
+let simPaused = true;
+let cinemaMode = false;
+let tleSource = null;
+let tleEpoch = null;
+let recording = false;
+let mediaRecorder = null;
+
+const settings = {
+    dotScale: 1.0,
+    glowScale: 1.0,
+    altScale: 1.0,
+    trailLenScale: 1.0,
+    trailWidthScale: 1.0,
+    trailOpacity: 1.0,
+    rotateSpeed: 1.0,
+    showLabels: false,
+    labelSize: 9,
+    starIntensity: 0.18,
+    horizonBlend: 0.035,
+    spaceBrightness: 1.0,
+    visibility: { PELICAN: true, SKYSAT: true, TANAGER: true, FLOCK: true }
+};
+
+let timelineCenter = Date.now();
+let timelineSpanHours = 24;
+
+function timelineStart() { return timelineCenter - timelineSpanHours * 3600000 / 2; }
+function timelineEnd() { return timelineCenter + timelineSpanHours * 3600000 / 2; }
+function timelineFraction() {
+    const span = timelineSpanHours * 3600000;
+    return Math.max(0, Math.min(1, (simTime.getTime() - timelineStart()) / span));
+}
+
+// ════════════════════════════════════════════════════════════════
+// MAP
+// ════════════════════════════════════════════════════════════════
+
+mapboxgl.accessToken = 'pk.eyJ1IjoiYWRvdWNldHQiLCJhIjoiY2lvZDFsc2lwMDRnd3Zha2pneWpxcHh6biJ9.sbWgw2zPGyScsp-r4CYQnA';
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v11',
+    projection: 'globe',
+    zoom: 1.5, center: [30, 15], pitch: 20, bearing: -15,
+    maxZoom: 8, fadeDuration: 0,
+    preserveDrawingBuffer: true, antialias: true
+});
+
+const fogConfig = {
+    color: 'rgb(8, 10, 18)',
+    'high-color': 'rgb(10, 12, 22)',
+    'horizon-blend': 0.035,
+    'space-color': 'rgb(5, 5, 12)',
+    'star-intensity': 0.18
+};
+
+map.on('style.load', () => {
+    map.setFog(fogConfig);
+    if (mapReady) {
+        initMapLayers();
+        initTooltips();
+        applySettings();
+        applyFog();
+        _lastTrailSimTime = 0;
+        updateSatPositions();
+        updateTrails();
+    }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CLASSIFICATION
+// ════════════════════════════════════════════════════════════════
+
+function classifySat(name) {
+    const u = name.toUpperCase();
+    if (u.includes('PELICAN')) return 'PELICAN';
+    if (u.includes('SKYSAT')) return 'SKYSAT';
+    if (u.includes('TANAGER')) return 'TANAGER';
+    return 'FLOCK';
+}
+
+function shortName(name, c, noradId) {
+    if (SAT_NAME_LOOKUP[noradId]) return SAT_NAME_LOOKUP[noradId];
+    const n = name.trim();
+    if (c === 'PELICAN') { const m = n.match(/PELICAN[- ]?(\d)/i); return m ? `Pelican-${m[1]}` : 'Pelican'; }
+    if (c === 'SKYSAT') { const m = n.match(/SKYSAT[-\s]*([A-C]?\d+)/i); return m ? `SkySat-${m[1]}` : 'SkySat'; }
+    if (c === 'TANAGER') { const m = n.match(/TANAGER[- ]?(\d+)/i); return m ? `Tanager-${m[1]}` : 'Tanager'; }
+    const fm = n.match(/FLOCK\s+(\w+)[- ](\d+)/i);
+    if (fm) return `${fm[1].toUpperCase()}-${fm[2]}`;
+    return n;
+}
+
+// ════════════════════════════════════════════════════════════════
+// SGP4
+// ════════════════════════════════════════════════════════════════
+
+function normalizeLng(d) { while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+
+function getSatPos(satrec, time) {
+    try {
+        const pv = satellite.propagate(satrec, time);
+        if (!pv || !pv.position) return null;
+        const gmst = satellite.gstime(time);
+        const geo = satellite.eciToGeodetic(pv.position, gmst);
+        return { lat: satellite.degreesLat(geo.latitude), lng: normalizeLng(satellite.degreesLong(geo.longitude)), alt: geo.height };
+    } catch { return null; }
+}
+
+function parseTLEEpoch(tle1) {
+    try {
+        const yr = parseInt(tle1.substring(18, 20));
+        const day = parseFloat(tle1.substring(20, 32));
+        const year = yr >= 57 ? 1900 + yr : 2000 + yr;
+        const e = new Date(Date.UTC(year, 0, 1));
+        e.setTime(e.getTime() + (day - 1) * 86400000);
+        return e;
+    } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TLE FETCH
+// ════════════════════════════════════════════════════════════════
+
+const CORS_PROXIES = [
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => url
+];
+
+const TLE_SOURCES = [
+    { url: 'https://ephemerides.planet-labs.com/planet_mc.tle', label: 'Planet Ephemerides (GPS/UHF)' },
+    { url: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=planet&FORMAT=tle', label: 'CelesTrak' },
+    { url: 'planet_mc.tle', label: 'Local Ephemerides (offline)', local: true }
+];
+
+async function fetchTLEFromUrl(url, isLocal) {
+    if (isLocal) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`Local HTTP ${r.status}`);
+        const txt = await r.text();
+        if (!txt.includes('1 ') || !txt.includes('2 ')) throw new Error('Local file not valid TLE');
+        return txt;
+    }
+    let lastErr = null;
+    for (const proxy of CORS_PROXIES) {
+        try {
+            const fetchUrl = proxy(url);
+            console.log(`[TLE] Trying: ${fetchUrl.substring(0, 80)}...`);
+            const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(12000) });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const txt = await r.text();
+            if (!txt.includes('1 ') || !txt.includes('2 ')) throw new Error('Not valid TLE data');
+            return txt;
+        } catch (e) {
+            lastErr = e;
+            console.warn(`[TLE] Proxy failed:`, e.message);
+        }
+    }
+    throw lastErr || new Error('All proxies failed');
+}
+
+function parseTLEs(txt) {
+    const sats = [];
+    const seen = new Set();
+    const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].startsWith('1 ')) continue;
+        if (i + 1 >= lines.length || !lines[i + 1].startsWith('2 ')) continue;
+        const tle1 = lines[i], tle2 = lines[i + 1];
+        const noradId = tle1.substring(2, 7).trim();
+        if (!noradId || seen.has(noradId)) { i++; continue; }
+        let name = `SAT-${noradId}`;
+        if (i > 0 && !lines[i - 1].startsWith('1 ') && !lines[i - 1].startsWith('2 ')) {
+            const raw = lines[i - 1];
+            name = raw.startsWith('0 ') ? raw.substring(2).trim() : raw.trim();
+        }
+        try {
+            const satrec = satellite.twoline2satrec(tle1, tle2);
+            const c = classifySat(name);
+            sats.push({ id: noradId, name, satrec, shortName: shortName(name, c, noradId), constellation: c, tleEpoch: parseTLEEpoch(tle1), _lastPos: null });
+            seen.add(noradId);
+        } catch (e) { console.warn(`[TLE] Parse failed for ${name}:`, e.message); }
+        i++;
+    }
+    const counts = {};
+    sats.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
+    console.log(`[TLE] Parsed ${sats.length} satellites:`, counts);
+    return sats;
+}
+
+async function loadTLEs() {
+    setLoadStatus('Fetching orbital data...');
+    for (const src of TLE_SOURCES) {
+        try {
+            setLoadStatus(`Connecting to ${src.label}...`);
+            const txt = await fetchTLEFromUrl(src.url, src.local);
+            const parsed = parseTLEs(txt);
+            if (parsed.length > 0) {
+                allSatellites = parsed;
+                tleSource = src.label;
+                let newest = null;
+                for (const s of allSatellites) if (s.tleEpoch && (!newest || s.tleEpoch > newest)) newest = s.tleEpoch;
+                tleEpoch = newest;
+                if (parsed.length < 100 && src !== TLE_SOURCES[TLE_SOURCES.length - 1]) {
+                    console.warn(`[TLE] Only ${parsed.length} sats, trying next source...`);
+                    continue;
+                }
+                return;
+            }
+        } catch (e) { console.warn(`[TLE] ${src.label} failed:`, e.message); }
+    }
+    if (allSatellites.length > 0) return;
+    throw new Error('All TLE sources failed');
+}
+
+function setLoadStatus(msg) { const el = document.getElementById('load-status'); if (el) el.textContent = msg; }
+
+// ════════════════════════════════════════════════════════════════
+// MAP LAYERS
+// ════════════════════════════════════════════════════════════════
+
+function initMapLayers() {
+    for (const key of CONSTELLATION_ORDER) {
+        const cfg = CONSTELLATIONS[key];
+        const rgb = hexToRgb(cfg.color);
+
+        map.addSource(`trail-${key}`, { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, lineMetrics: true });
+        map.addSource(`dots-${key}`, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+
+        map.addLayer({
+            id: `trail-${key}`, type: 'line', source: `trail-${key}`,
+            paint: {
+                'line-width': cfg.trailWidth,
+                'line-opacity': settings.trailOpacity,
+                'line-gradient': [
+                    'interpolate', ['linear'], ['line-progress'],
+                    0, `rgba(${rgb},0)`,
+                    0.4, `rgba(${rgb},0.06)`,
+                    0.85, `rgba(${rgb},0.3)`,
+                    1, `rgba(${rgb},0.55)`
+                ]
+            },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+        });
+
+        if (key !== 'FLOCK') {
+            map.addLayer({
+                id: `halo-${key}`, type: 'circle', source: `dots-${key}`,
+                paint: {
+                    'circle-radius': cfg.haloRadius,
+                    'circle-color': cfg._haloColor,
+                    'circle-blur': cfg.haloBlur,
+                    'circle-translate': [0, cfg.altOffset],
+                    'circle-pitch-alignment': 'map'
+                }
+            });
+        }
+
+        map.addLayer({
+            id: `glow-${key}`, type: 'circle', source: `dots-${key}`,
+            paint: {
+                'circle-radius': cfg.glowRadius,
+                'circle-color': cfg._glowColor,
+                'circle-blur': cfg.glowBlur,
+                'circle-translate': [0, cfg.altOffset],
+                'circle-pitch-alignment': 'map'
+            }
+        });
+
+        map.addLayer({
+            id: `dot-${key}`, type: 'circle', source: `dots-${key}`,
+            paint: {
+                'circle-radius': cfg.dotRadius,
+                'circle-color': cfg.color,
+                'circle-opacity': cfg.dotOpacity,
+                'circle-translate': [0, cfg.altOffset],
+                'circle-pitch-alignment': 'map'
+            }
+        });
+
+        map.addLayer({
+            id: `label-${key}`, type: 'symbol', source: `dots-${key}`,
+            layout: {
+                'text-field': ['get', 'name'],
+                'text-size': settings.labelSize,
+                'text-offset': [0, -1.4],
+                'text-anchor': 'bottom',
+                'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+                'visibility': 'none'
+            },
+            paint: {
+                'text-color': cfg.color,
+                'text-halo-color': 'rgba(0,0,0,0.75)',
+                'text-halo-width': 1.2,
+                'text-opacity': 0.85
+            }
+        });
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// APPLY SETTINGS
+// ════════════════════════════════════════════════════════════════
+
+function applySettings() {
+    for (const key of CONSTELLATION_ORDER) {
+        const cfg = CONSTELLATIONS[key];
+        const vis = settings.visibility[key] ? 'visible' : 'none';
+        const labelVis = (settings.visibility[key] && settings.showLabels) ? 'visible' : 'none';
+
+        ['trail', 'halo', 'glow', 'dot'].forEach(l => {
+            try { map.setLayoutProperty(`${l}-${key}`, 'visibility', vis); } catch {}
+        });
+        try { map.setLayoutProperty(`label-${key}`, 'visibility', labelVis); } catch {}
+
+        const ds = settings.dotScale;
+        const gs = settings.glowScale;
+        const altPx = cfg.altOffset * settings.altScale;
+
+        try { map.setPaintProperty(`dot-${key}`, 'circle-radius', cfg.dotRadius * ds); } catch {}
+        try { map.setPaintProperty(`dot-${key}`, 'circle-color', cfg.color); } catch {}
+        try { map.setPaintProperty(`dot-${key}`, 'circle-translate', [0, altPx]); } catch {}
+        try { map.setPaintProperty(`glow-${key}`, 'circle-radius', cfg.glowRadius * ds * gs); } catch {}
+        try { map.setPaintProperty(`glow-${key}`, 'circle-color', cfg._glowColor); } catch {}
+        try { map.setPaintProperty(`glow-${key}`, 'circle-translate', [0, altPx]); } catch {}
+        if (key !== 'FLOCK') {
+            try { map.setPaintProperty(`halo-${key}`, 'circle-radius', cfg.haloRadius * ds * gs); } catch {}
+            try { map.setPaintProperty(`halo-${key}`, 'circle-color', cfg._haloColor); } catch {}
+            try { map.setPaintProperty(`halo-${key}`, 'circle-translate', [0, altPx]); } catch {}
+        }
+        try { map.setPaintProperty(`trail-${key}`, 'line-width', cfg.trailWidth * settings.trailWidthScale); } catch {}
+        try { map.setPaintProperty(`trail-${key}`, 'line-opacity', settings.trailOpacity); } catch {}
+        try { map.setLayoutProperty(`label-${key}`, 'text-size', settings.labelSize); } catch {}
+        try { map.setPaintProperty(`label-${key}`, 'text-color', cfg.color); } catch {}
+    }
+}
+
+function applyFog() {
+    fogConfig['star-intensity'] = settings.starIntensity;
+    fogConfig['horizon-blend'] = settings.horizonBlend;
+    const b = Math.round(5 * settings.spaceBrightness);
+    const b2 = Math.round(12 * settings.spaceBrightness);
+    fogConfig['space-color'] = `rgb(${b}, ${b}, ${b2})`;
+    try { map.setFog(fogConfig); } catch {}
+}
+
+function updateConstellationColor(key, hex) {
+    CONSTELLATIONS[key].color = hex;
+    deriveColors(CONSTELLATIONS[key]);
+    applySettings();
+
+    const rgb = hexToRgb(hex);
+    try {
+        map.setPaintProperty(`trail-${key}`, 'line-gradient', [
+            'interpolate', ['linear'], ['line-progress'],
+            0, `rgba(${rgb},0)`, 0.4, `rgba(${rgb},0.06)`,
+            0.85, `rgba(${rgb},0.3)`, 1, `rgba(${rgb},0.55)`
+        ]);
+    } catch {}
+
+    buildCards();
+    buildVisToggles();
+}
+
+// ════════════════════════════════════════════════════════════════
+// UPDATE POSITIONS + TRAILS
+// ════════════════════════════════════════════════════════════════
+
+const emptyFC = Object.freeze({ type: 'FeatureCollection', features: [] });
+
+const _dotBuckets = {};
+const _dotFCs = {};
+CONSTELLATION_ORDER.forEach(k => {
+    _dotBuckets[k] = [];
+    _dotFCs[k] = { type: 'FeatureCollection', features: _dotBuckets[k] };
+});
+
+function updateSatPositions() {
+    const now = simTime;
+    CONSTELLATION_ORDER.forEach(k => { _dotBuckets[k].length = 0; });
+
+    for (const sat of allSatellites) {
+        if (!settings.visibility[sat.constellation]) continue;
+        const pos = getSatPos(sat.satrec, now);
+        if (!pos) continue;
+        sat._lastPos = pos;
+
+        if (!sat._feature) {
+            sat._feature = {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [0, 0] },
+                properties: { name: sat.shortName, id: sat.id, alt: 0 }
+            };
+        }
+        sat._feature.geometry.coordinates[0] = pos.lng;
+        sat._feature.geometry.coordinates[1] = pos.lat;
+        sat._feature.properties.alt = Math.round(pos.alt);
+        _dotBuckets[sat.constellation].push(sat._feature);
+    }
+
+    for (const key of CONSTELLATION_ORDER) {
+        const src = map.getSource(`dots-${key}`);
+        if (src) src.setData(_dotFCs[key]);
+    }
+}
+
+let _lastTrailSimTime = 0;
+
+function updateTrails() {
+    const nowMs = simTime.getTime();
+    if (simPaused && Math.abs(nowMs - _lastTrailSimTime) < 500) return;
+    _lastTrailSimTime = nowMs;
+
+    const zoom = map.getZoom();
+    const trailsByConst = {};
+    CONSTELLATION_ORDER.forEach(k => { trailsByConst[k] = []; });
+
+    const highSpeed = simSpeed > 200;
+    const baseSamples = highSpeed ? 14 : TRAIL_SAMPLES;
+    const flockSamples = highSpeed ? 8 : 12;
+
+    for (const sat of allSatellites) {
+        if (!settings.visibility[sat.constellation]) continue;
+        const cfg = CONSTELLATIONS[sat.constellation];
+        if (zoom < cfg.showTrailAtZoom) continue;
+        const dur = cfg.trailMinutes * 60000 * settings.trailLenScale;
+        if (dur <= 0) continue;
+
+        const samples = (sat.constellation === 'FLOCK') ? flockSamples : baseSamples;
+        const coords = [];
+        for (let i = samples; i >= 1; i--) {
+            const t = new Date(nowMs - (i / samples) * dur);
+            const p = getSatPos(sat.satrec, t);
+            if (p) {
+                if (coords.length > 0 && Math.abs(p.lng - coords[coords.length - 1][0]) > 170) continue;
+                coords.push([p.lng, p.lat]);
+            }
+        }
+        if (sat._lastPos) {
+            const lp = sat._lastPos;
+            if (coords.length === 0 || Math.abs(lp.lng - coords[coords.length - 1][0]) <= 170) {
+                coords.push([lp.lng, lp.lat]);
+            }
+        }
+        if (coords.length >= 2) {
+            trailsByConst[sat.constellation].push({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: coords },
+                properties: {}
+            });
+        }
+    }
+
+    for (const key of CONSTELLATION_ORDER) {
+        const src = map.getSource(`trail-${key}`);
+        if (!src) continue;
+        src.setData(settings.visibility[key] && settings.trailLenScale > 0
+            ? { type: 'FeatureCollection', features: trailsByConst[key] }
+            : emptyFC);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TOOLTIPS
+// ════════════════════════════════════════════════════════════════
+
+function initTooltips() {
+    const tooltip = document.getElementById('sat-tooltip');
+    const dotLayers = CONSTELLATION_ORDER.map(k => `dot-${k}`);
+    for (const layerId of dotLayers) {
+        map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
+        map.on('mousemove', layerId, (e) => {
+            if (!e.features?.length) return;
+            const p = e.features[0].properties;
+            const key = layerId.replace('dot-', '');
+            const cfg = CONSTELLATIONS[key];
+            tooltip.innerHTML = `<div style="font-weight:600;color:${cfg.color};margin-bottom:2px">${p.name} <span style="font-size:8.5px;color:#919698;font-weight:400;margin-left:3px">${cfg.label} \u00B7 NORAD ${p.id}</span></div><div style="color:#919698;font-size:10px">Alt: <span style="color:#fff">${p.alt} km</span> \u00A0 GSD: <span style="color:#fff">${cfg.gsd}</span> \u00A0 Swath: <span style="color:#fff">${cfg.swathKm} km</span></div>`;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.point.x + 14) + 'px';
+            tooltip.style.top = (e.point.y - 14) + 'px';
+        });
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// TIMELINE SCRUBBER
+// ════════════════════════════════════════════════════════════════
+
+let isDraggingScrub = false;
+
+function initTimeline() {
+    const scrub = document.getElementById('tl-scrub');
+    const thumb = document.getElementById('tl-thumb');
+
+    function scrubFromEvent(e) {
+        const rect = scrub.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const span = timelineSpanHours * 3600000;
+        simTime = new Date(timelineStart() + frac * span);
+    }
+
+    scrub.addEventListener('mousedown', (e) => {
+        isDraggingScrub = true;
+        if (!simPaused) togglePause();
+        scrubFromEvent(e);
+    });
+    window.addEventListener('mousemove', (e) => { if (isDraggingScrub) scrubFromEvent(e); });
+    window.addEventListener('mouseup', () => { isDraggingScrub = false; });
+
+    scrub.addEventListener('touchstart', (e) => {
+        isDraggingScrub = true;
+        if (!simPaused) togglePause();
+        scrubFromEvent(e);
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => { if (isDraggingScrub) scrubFromEvent(e); }, { passive: true });
+    window.addEventListener('touchend', () => { isDraggingScrub = false; });
+
+    document.querySelectorAll('.tl-range').forEach(btn => {
+        btn.addEventListener('click', () => {
+            timelineSpanHours = parseInt(btn.dataset.hours);
+            timelineCenter = simTime.getTime();
+            document.querySelectorAll('.tl-range').forEach(b => b.classList.toggle('active', b === btn));
+            updateTimelineTicks();
+        });
+    });
+
+    updateTimelineTicks();
+}
+
+function updateTimelineTicks() {
+    const ticks = document.getElementById('tl-ticks');
+    const count = 7;
+    const span = timelineSpanHours * 3600000;
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        const t = new Date(timelineStart() + (i / (count - 1)) * span);
+        const hh = String(t.getUTCHours()).padStart(2, '0');
+        const mm = String(t.getUTCMinutes()).padStart(2, '0');
+        html += `<span class="tl-tick">${hh}:${mm}</span>`;
+    }
+    ticks.innerHTML = html;
+}
+
+function updateTimelineUI() {
+    const t = simTime.getTime();
+    const start = timelineStart();
+    const end = timelineEnd();
+
+    if (t < start || t > end) {
+        timelineCenter = t;
+        updateTimelineTicks();
+    }
+
+    const frac = timelineFraction();
+    const thumb = document.getElementById('tl-thumb');
+    const fill = document.getElementById('tl-fill');
+    const scrub = document.getElementById('tl-scrub');
+    const w = scrub.offsetWidth;
+    thumb.style.left = (frac * w) + 'px';
+    fill.style.width = (frac * 100) + '%';
+
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const h = String(simTime.getUTCHours()).padStart(2, '0');
+    const m = String(simTime.getUTCMinutes()).padStart(2, '0');
+    const s = String(simTime.getUTCSeconds()).padStart(2, '0');
+    const timeStr = `${h}:${m}:${s} UTC`;
+    const dateStr = `${simTime.getUTCDate()} ${months[simTime.getUTCMonth()]} ${simTime.getUTCFullYear()}`;
+
+    document.getElementById('tl-clock-time').textContent = timeStr;
+    document.getElementById('tl-clock-date').textContent = dateStr;
+    document.getElementById('cinema-time').textContent = `${timeStr}  \u00B7  ${dateStr}`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// SPEED / PAUSE
+// ════════════════════════════════════════════════════════════════
+
+function setSpeed(speed) {
+    simSpeed = Math.max(1, Math.min(7200, Math.round(speed)));
+    document.querySelectorAll('.tl-speed').forEach(b => b.classList.toggle('active', parseInt(b.dataset.speed) === simSpeed));
+    document.getElementById('tl-speed-label').textContent = simSpeed === 1 ? 'Real-time' : `${simSpeed}\u00d7 speed`;
+    const inp = document.getElementById('tl-custom');
+    if (document.activeElement !== inp) inp.value = '';
+}
+
+function togglePause() {
+    simPaused = !simPaused;
+    document.getElementById('tl-play').innerHTML = simPaused ? '&#9654;' : '&#9646;&#9646;';
+}
+
+// ════════════════════════════════════════════════════════════════
+// UI BUILD
+// ════════════════════════════════════════════════════════════════
+
+function buildCards() {
+    const container = document.getElementById('cards');
+    const counts = {};
+    allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
+    let html = `<div id="sat-header"><span class="total-count">${allSatellites.length}</span><span class="total-label">Active Satellites</span></div>`;
+    html += CONSTELLATION_ORDER.map(key => {
+        const cfg = CONSTELLATIONS[key];
+        return `<div class="card${settings.visibility[key] ? '' : ' off'}" data-const="${key}">
+            <div class="card-header">
+                <div class="card-dot" style="color:${cfg.color};background:${cfg.color}"></div>
+                <span class="card-name">${cfg.label}</span>
+                <span class="card-count">${counts[key] || 0}</span>
+            </div>
+            <div class="card-meta">
+                <span><span class="v">${cfg.altKm} km</span> alt</span>
+                <span><span class="v">${cfg.gsd}</span> GSD</span>
+                <span><span class="v">${cfg.swathKm} km</span> swath</span>
+            </div>
+        </div>`;
+    }).join('');
+    container.innerHTML = html;
+    container.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', () => {
+            const key = card.dataset.const;
+            settings.visibility[key] = !settings.visibility[key];
+            card.classList.toggle('off', !settings.visibility[key]);
+            applySettings();
+            syncVisToggles();
+        });
+    });
+}
+
+function buildVisToggles() {
+    const container = document.getElementById('vis-toggles');
+    const counts = {};
+    allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
+    container.innerHTML = CONSTELLATION_ORDER.map(key => {
+        const cfg = CONSTELLATIONS[key];
+        return `<div class="toggle-row${settings.visibility[key] ? '' : ' off'}" data-const="${key}">
+            <div class="toggle-indicator" style="color:${cfg.color}"></div>
+            <span class="toggle-label">${cfg.label}</span>
+            <span class="toggle-count">${counts[key] || 0}</span>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('.toggle-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const key = row.dataset.const;
+            settings.visibility[key] = !settings.visibility[key];
+            syncVisToggles(); syncCards(); applySettings();
+        });
+    });
+}
+
+function buildColorPickers() {
+    const container = document.getElementById('color-pickers');
+    container.innerHTML = CONSTELLATION_ORDER.map(key => {
+        const cfg = CONSTELLATIONS[key];
+        return `<div class="color-row">
+            <input type="color" value="${cfg.color}" class="color-swatch" data-const="${key}">
+            <span class="color-name">${cfg.label}</span>
+            <span class="color-hex">${cfg.color}</span>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('.color-swatch').forEach(sw => {
+        sw.addEventListener('input', () => {
+            const key = sw.dataset.const;
+            updateConstellationColor(key, sw.value);
+            sw.closest('.color-row').querySelector('.color-hex').textContent = sw.value;
+        });
+    });
+}
+
+function syncVisToggles() { document.querySelectorAll('#vis-toggles .toggle-row').forEach(r => r.classList.toggle('off', !settings.visibility[r.dataset.const])); }
+function syncCards() { document.querySelectorAll('#cards .card').forEach(c => c.classList.toggle('off', !settings.visibility[c.dataset.const])); }
+
+function updateDataSource() {
+    const el = document.getElementById('tl-source');
+    if (!tleSource) return;
+    const counts = {};
+    allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
+    const breakdown = CONSTELLATION_ORDER.map(k => `${CONSTELLATIONS[k].label}: ${counts[k] || 0}`).join(' \u00B7 ');
+    el.textContent = `${tleSource} \u00B7 ${allSatellites.length} sats (${breakdown})`;
+}
+
+function updateEpochInfo() {
+    const el = document.getElementById('epoch-info');
+    if (!tleEpoch) { el.textContent = 'No epoch data'; return; }
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const h = String(tleEpoch.getUTCHours()).padStart(2, '0'), m = String(tleEpoch.getUTCMinutes()).padStart(2, '0');
+    const ageH = Math.floor((Date.now() - tleEpoch.getTime()) / 3600000);
+    el.innerHTML = `Epoch: ${tleEpoch.getUTCDate()} ${months[tleEpoch.getUTCMonth()]} ${tleEpoch.getUTCFullYear()} ${h}:${m} UTC<br>Age: ${ageH < 1 ? '<1' : ageH} hr`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// CINEMA + RECORDING
+// ════════════════════════════════════════════════════════════════
+
+function toggleCinema() {
+    cinemaMode = !cinemaMode;
+    document.body.classList.toggle('cinema', cinemaMode);
+    if (cinemaMode && simPaused) togglePause();
+}
+
+let autoRotateBearing = -15;
+function autoRotateStep(dt) {
+    if (!cinemaMode) return;
+    autoRotateBearing += dt * 0.002 * settings.rotateSpeed;
+    map.setBearing(autoRotateBearing % 360);
+}
+
+function toggleRecording() { if (recording) stopRecording(); else startRecording(); }
+function startRecording() {
+    try {
+        const stream = map.getCanvas().captureStream(30);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12000000 });
+        const chunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `planet-constellation-${Date.now()}.webm`;
+            a.click();
+        };
+        mediaRecorder.start();
+        recording = true;
+        document.getElementById('rec-indicator').style.display = 'flex';
+    } catch (e) { console.error('Recording failed:', e); }
+}
+function stopRecording() {
+    if (mediaRecorder && recording) { mediaRecorder.stop(); recording = false; document.getElementById('rec-indicator').style.display = 'none'; }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SETTINGS WIRING
+// ════════════════════════════════════════════════════════════════
+
+function buildBasemapList() {
+    const container = document.getElementById('basemap-list');
+    container.innerHTML = BASEMAPS.map(bm => `<div class="basemap-row${bm.id === activeBasemap ? ' active' : ''}" data-style-id="${bm.id}">
+        <div class="basemap-radio"></div>
+        <span class="basemap-name">${bm.label}</span>
+    </div>`).join('');
+    container.querySelectorAll('.basemap-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const id = row.dataset.styleId;
+            if (id === activeBasemap) return;
+            const bm = BASEMAPS.find(b => b.id === id);
+            if (!bm) return;
+            activeBasemap = id;
+            container.querySelectorAll('.basemap-row').forEach(r => r.classList.toggle('active', r.dataset.styleId === id));
+            map.setStyle(bm.style);
+        });
+    });
+}
+
+function wireSettings() {
+    const panel = document.getElementById('settings-panel');
+    const toggle = document.getElementById('settings-toggle');
+    toggle.addEventListener('click', () => { panel.classList.toggle('open'); toggle.classList.toggle('open'); });
+
+    function bind(id, valId, prop, fmt, extra) {
+        const sl = document.getElementById(id), vl = document.getElementById(valId);
+        sl.addEventListener('input', () => {
+            settings[prop] = parseFloat(sl.value);
+            vl.textContent = fmt(settings[prop]);
+            applySettings();
+            if (extra) extra();
+        });
+    }
+
+    bind('sl-dot-size', 'val-dot-size', 'dotScale', v => v.toFixed(1) + '\u00d7');
+    bind('sl-glow', 'val-glow', 'glowScale', v => v.toFixed(1) + '\u00d7');
+    bind('sl-alt', 'val-alt', 'altScale', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
+    bind('sl-trail-len', 'val-trail-len', 'trailLenScale', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
+    bind('sl-trail-w', 'val-trail-w', 'trailWidthScale', v => v.toFixed(1) + '\u00d7');
+    bind('sl-trail-op', 'val-trail-op', 'trailOpacity', v => v.toFixed(2) + '\u00d7');
+    bind('sl-rotate', 'val-rotate', 'rotateSpeed', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
+    bind('sl-label-size', 'val-label-size', 'labelSize', v => String(Math.round(v)));
+    bind('sl-stars', 'val-stars', 'starIntensity', v => v.toFixed(2), applyFog);
+    bind('sl-haze', 'val-haze', 'horizonBlend', v => v.toFixed(3), applyFog);
+    bind('sl-space', 'val-space', 'spaceBrightness', v => v.toFixed(1) + '\u00d7', applyFog);
+
+    const labelBtn = document.getElementById('btn-labels');
+    labelBtn.addEventListener('click', () => {
+        settings.showLabels = !settings.showLabels;
+        labelBtn.textContent = settings.showLabels ? 'ON' : 'OFF';
+        labelBtn.classList.toggle('on', settings.showLabels);
+        applySettings();
+    });
+
+    document.getElementById('btn-jump-epoch').addEventListener('click', () => {
+        if (tleEpoch) {
+            simTime = new Date(tleEpoch.getTime());
+            timelineCenter = simTime.getTime();
+            updateTimelineTicks();
+            _lastTrailSimTime = 0;
+        }
+    });
+    document.getElementById('btn-jump-now').addEventListener('click', () => {
+        simTime = new Date();
+        timelineCenter = simTime.getTime();
+        updateTimelineTicks();
+        _lastTrailSimTime = 0;
+    });
+}
+
+// ════════════════════════════════════════════════════════════════
+// PELICAN PULSE
+// ════════════════════════════════════════════════════════════════
+
+function pelicanPulse(ts) {
+    if (!settings.visibility.PELICAN) return;
+    const pulse = 1 + 0.2 * Math.sin(ts * 0.003);
+    try {
+        map.setPaintProperty('glow-PELICAN', 'circle-radius', CONSTELLATIONS.PELICAN.glowRadius * settings.dotScale * settings.glowScale * pulse);
+        map.setPaintProperty('halo-PELICAN', 'circle-radius', CONSTELLATIONS.PELICAN.haloRadius * settings.dotScale * settings.glowScale * (1 + 0.1 * Math.sin(ts * 0.002)));
+    } catch {}
+}
+
+// ════════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ════════════════════════════════════════════════════════════════
+
+let lastFrame = 0, lastPosUpdate = 0, lastTrailUpdate = 0, lastUIUpdate = 0, lastPulse = 0;
+
+function trailInterval() {
+    if (simSpeed <= 1) return 2000;
+    if (simSpeed <= 60) return 800;
+    return Math.max(120, Math.round(50000 / simSpeed));
+}
+
+function animate(ts) {
+    requestAnimationFrame(animate);
+    const dt = lastFrame ? Math.min(ts - lastFrame, 100) : 16;
+    lastFrame = ts;
+
+    if (!simPaused && !isDraggingScrub) simTime = new Date(simTime.getTime() + dt * simSpeed);
+
+    const posInterval = simSpeed > 300 ? 50 : 80;
+    if (ts - lastPosUpdate > posInterval) {
+        updateSatPositions();
+        lastPosUpdate = ts;
+    }
+    if (ts - lastPulse > 200) { pelicanPulse(ts); lastPulse = ts; }
+    if (ts - lastTrailUpdate > trailInterval()) {
+        updateTrails();
+        lastTrailUpdate = ts;
+    }
+    if (ts - lastUIUpdate > 100) { updateTimelineUI(); lastUIUpdate = ts; }
+
+    autoRotateStep(dt);
+}
+
+// ════════════════════════════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════════════════════════════
+
+document.getElementById('tl-play').addEventListener('click', togglePause);
+document.querySelectorAll('.tl-speed').forEach(btn => btn.addEventListener('click', () => setSpeed(parseInt(btn.dataset.speed))));
+document.getElementById('tl-custom').addEventListener('change', (e) => { const v = parseInt(e.target.value); if (v >= 1) setSpeed(v); });
+document.getElementById('tl-custom').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); } e.stopPropagation(); });
+document.getElementById('btn-cinema').addEventListener('click', toggleCinema);
+document.getElementById('btn-rec').addEventListener('click', toggleRecording);
+
+document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'c' || e.key === 'C') toggleCinema();
+    if (e.key === ' ') { e.preventDefault(); togglePause(); }
+    if (e.key === 'r' || e.key === 'R') toggleRecording();
+    if (e.key === 's' || e.key === 'S') { document.getElementById('settings-panel').classList.toggle('open'); document.getElementById('settings-toggle').classList.toggle('open'); }
+    if (e.key === 'l' || e.key === 'L') { document.getElementById('btn-labels').click(); }
+    if (e.key === 'b' || e.key === 'B') {
+        const idx = BASEMAPS.findIndex(b => b.id === activeBasemap);
+        const next = BASEMAPS[(idx + 1) % BASEMAPS.length];
+        activeBasemap = next.id;
+        document.querySelectorAll('.basemap-row').forEach(r => r.classList.toggle('active', r.dataset.styleId === next.id));
+        map.setStyle(next.style);
+    }
+    if (e.key === 'ArrowUp') setSpeed(Math.min(simSpeed <= 10 ? simSpeed + 1 : Math.round(simSpeed * 1.5), 7200));
+    if (e.key === 'ArrowDown') setSpeed(Math.max(simSpeed <= 10 ? simSpeed - 1 : Math.round(simSpeed / 1.5), 1));
+    if (e.key === 'ArrowLeft') { simTime = new Date(simTime.getTime() - 600000); }
+    if (e.key === 'ArrowRight') { simTime = new Date(simTime.getTime() + 600000); }
+});
+
+map.on('mousedown', () => { autoRotateBearing = map.getBearing(); });
+
+// ════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════
+
+map.on('load', async () => {
+    try {
+        setLoadStatus('Fetching Planet ephemeris data...');
+        await loadTLEs();
+        setLoadStatus(`${allSatellites.length} satellites loaded...`);
+
+        timelineCenter = simTime.getTime();
+
+        initMapLayers();
+        initTimeline();
+        buildCards();
+        buildVisToggles();
+        buildColorPickers();
+        buildBasemapList();
+        wireSettings();
+        updateDataSource();
+        updateEpochInfo();
+        initTooltips();
+        setSpeed(60);
+        applyFog();
+
+        updateSatPositions();
+        updateTrails();
+        updateTimelineUI();
+        applySettings();
+
+        mapReady = true;
+        document.getElementById('loading').classList.add('hidden');
+        requestAnimationFrame(animate);
+    } catch (err) {
+        setLoadStatus(`Error: ${err.message}`);
+        console.error('Init failed:', err);
+    }
+});
+</script>
+</body>
+</html>
