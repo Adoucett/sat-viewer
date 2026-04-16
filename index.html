@@ -411,7 +411,7 @@ const BASEMAPS = [
     { id: 'satellite-v9',  label: 'Satellite Imagery',  style: 'mapbox://styles/mapbox/satellite-v9' },
     { id: 'nav-night',     label: 'Navigation Night',  style: 'mapbox://styles/mapbox/navigation-night-v1' },
 ];
-let activeBasemap = 'dark-v11';
+let activeBasemap = 'planet-dark';
 let mapReady = false;
 
 // ════════════════════════════════════════════════════════════════
@@ -462,7 +462,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiYWRvdWNldHQiLCJhIjoiY2lvZDFsc2lwMDRnd3Zha2pne
 
 const map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/mapbox/dark-v11',
+    style: 'mapbox://styles/adoucett/cmmy6so6j004t01s7gu0x8zr3',
     projection: 'globe',
     zoom: 1.5, center: [30, 15], pitch: 20, bearing: -15,
     maxZoom: 8, fadeDuration: 0,
