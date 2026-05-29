@@ -3,10 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planet Constellation Viewer</title>
+    <title>Planet Constellation Viewer v2</title>
 
-    <script src='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css' rel='stylesheet' />
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/satellite.js@6.0.2/dist/satellite.min.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,23 +22,17 @@
     <style>
         :root {
             --planet-teal: #009db1;
-            --planet-dark: #363f43;
             --planet-grey: #919698;
-            --planet-bg: #060610;
-            --card-bg: rgba(16, 22, 28, 0.88);
+            --planet-bg: #020208;
+            --card-bg: rgba(12, 16, 22, 0.85);
             --card-border: rgba(0, 157, 177, 0.12);
-            --panel-bg: rgba(12, 16, 22, 0.92);
+            --panel-bg: rgba(10, 14, 20, 0.9);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Montserrat', sans-serif; background: var(--planet-bg); color: #fff; overflow: hidden; height: 100vh; width: 100vw; }
-        #map { position: absolute; inset: 0; }
-        #map .mapboxgl-ctrl-bottom-right, #map .mapboxgl-ctrl-bottom-left { display: none; }
+        canvas { display: block; position: absolute; inset: 0; }
 
-        #vignette { position: fixed; inset: 0; z-index: 2; pointer-events: none;
-            background: radial-gradient(ellipse at 50% 48%, transparent 55%, rgba(4,4,14,0.45) 100%); }
-
-        /* Loading */
-        #loading { position: fixed; inset: 0; z-index: 1000; background: var(--planet-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 1s ease, visibility 1s; }
+        #loading { position: fixed; inset: 0; z-index: 1000; background: var(--planet-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 1.2s ease, visibility 1.2s; }
         #loading.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .load-planet { width: 48px; height: 48px; position: relative; }
         .load-planet .core { width: 18px; height: 18px; background: var(--planet-teal); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
@@ -41,19 +41,16 @@
         #loading p { margin-top: 22px; font-size: 10px; color: var(--planet-grey); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Logo */
         #logo { position: fixed; top: 20px; left: 22px; z-index: 50; display: flex; align-items: center; gap: 10px; transition: opacity 0.5s; }
         #logo svg { height: 22px; }
         #logo .divider { width: 1px; height: 18px; background: rgba(255,255,255,0.1); }
         #logo .subtitle { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; text-transform: uppercase; }
 
-        /* Settings Toggle */
         #settings-toggle { position: fixed; top: 54px; left: 22px; z-index: 56; width: 32px; height: 32px; background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--planet-grey); font-size: 15px; backdrop-filter: blur(12px); transition: all 0.3s; }
         #settings-toggle:hover { color: #fff; border-color: rgba(0,157,177,0.35); }
         #settings-toggle.open { color: var(--planet-teal); border-color: rgba(0,157,177,0.35); }
 
-        /* Settings Panel */
-        #settings-panel { position: fixed; top: 54px; left: 64px; z-index: 55; width: 280px; background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 0; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transform: translateX(-340px); opacity: 0; transition: transform 0.3s ease, opacity 0.25s ease; max-height: calc(100vh - 72px); overflow-y: auto; overflow-x: hidden; }
+        #settings-panel { position: fixed; top: 54px; left: 64px; z-index: 55; width: 280px; background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 10px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transform: translateX(-340px); opacity: 0; transition: transform 0.3s ease, opacity 0.25s ease; max-height: calc(100vh - 72px); overflow-y: auto; overflow-x: hidden; }
         #settings-panel.open { transform: translateX(0); opacity: 1; }
         #settings-panel::-webkit-scrollbar { width: 3px; }
         #settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
@@ -74,56 +71,50 @@
         .slider-value { font-family: 'Source Code Pro', monospace; font-size: 9.5px; color: var(--planet-teal); font-weight: 500; }
         input[type="range"] { -webkit-appearance: none; width: 100%; height: 2px; background: rgba(255,255,255,0.06); border-radius: 2px; outline: none; cursor: pointer; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--planet-teal); cursor: pointer; box-shadow: 0 0 8px rgba(0,157,177,0.35); }
-        input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: var(--planet-teal); cursor: pointer; }
 
         .settings-btn { display: block; width: 100%; padding: 6px 10px; margin-bottom: 5px; background: rgba(0,157,177,0.06); border: 1px solid rgba(0,157,177,0.15); border-radius: 5px; cursor: pointer; font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 500; color: var(--planet-teal); text-align: center; transition: all 0.2s; }
         .settings-btn:hover { background: rgba(0,157,177,0.12); border-color: rgba(0,157,177,0.3); }
         .epoch-info { font-family: 'Source Code Pro', monospace; font-size: 9.5px; color: var(--planet-grey); margin-bottom: 6px; line-height: 1.6; }
-
         .mini-toggle { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 2px 8px; font-family: 'Source Code Pro', monospace; font-size: 8.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .mini-toggle.on { background: rgba(0,157,177,0.15); border-color: rgba(0,157,177,0.3); color: var(--planet-teal); }
         .mini-toggle:not(.on) { color: rgba(255,255,255,0.3); }
 
+        .scene-slot { display:flex; align-items:center; gap:4px; padding:3px 0; font-size:8px; }
+        .scene-slot .slot-label { flex:1; color:rgba(255,255,255,0.6); font-family:'Source Code Pro',monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .scene-slot button { padding:1px 6px; font-size:7.5px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:3px; color:rgba(255,255,255,0.5); cursor:pointer; font-family:'Source Code Pro',monospace; }
+        .scene-slot button:hover { background:rgba(0,157,177,0.15); border-color:rgba(0,157,177,0.3); color:var(--planet-teal); }
+        .scene-slot .slot-del:hover { background:rgba(200,50,50,0.2); border-color:rgba(200,50,50,0.4); color:#e55; }
         .color-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
         .color-swatch { -webkit-appearance: none; width: 22px; height: 22px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; padding: 0; background: none; }
         .color-swatch::-webkit-color-swatch-wrapper { padding: 1px; }
         .color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
-        .color-swatch::-moz-color-swatch { border: none; border-radius: 3px; }
         .color-name { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; flex: 1; }
         .color-hex { font-family: 'Source Code Pro', monospace; font-size: 9px; color: rgba(255,255,255,0.2); }
 
-        .basemap-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; transition: opacity 0.15s; }
-        .basemap-row:hover { opacity: 0.85; }
-        .basemap-radio { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; transition: all 0.2s; }
-        .basemap-row.active .basemap-radio { border-color: var(--planet-teal); background: var(--planet-teal); }
-        .basemap-name { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 500; }
-        .basemap-row.active .basemap-name { color: rgba(255,255,255,0.8); }
-
-        /* Constellation Cards */
         #cards { position: fixed; right: 22px; top: 50%; transform: translateY(-50%); z-index: 50; display: flex; flex-direction: column; gap: 5px; transition: opacity 0.5s; }
         #sat-header { text-align: right; margin-bottom: 8px; }
         #sat-header .total-count { font-family: 'Source Code Pro', monospace; font-size: 36px; font-weight: 300; color: rgba(255,255,255,0.85); letter-spacing: -0.02em; }
         #sat-header .total-label { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.25); letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-top: -2px; }
-        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 9px; padding: 10px 14px; min-width: 168px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); cursor: pointer; user-select: none; transition: all 0.3s; }
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 9px; padding: 10px 14px; min-width: 168px; backdrop-filter: blur(14px); cursor: pointer; user-select: none; transition: all 0.3s; }
         .card:hover { border-color: rgba(0,157,177,0.3); transform: translateX(-3px); }
         .card.off { opacity: 0.2; }
-        .card.off:hover { opacity: 0.35; }
         .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
+        .card-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
         .card-name { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
         .card-count { margin-left: auto; font-family: 'Source Code Pro', monospace; font-size: 17px; font-weight: 600; }
-        .card-meta { display: flex; gap: 12px; font-size: 9px; color: var(--planet-grey); font-weight: 400; }
+        .card-meta { display: flex; gap: 12px; font-size: 9px; color: var(--planet-grey); }
         .card-meta .v { color: rgba(255,255,255,0.6); font-weight: 500; }
 
-        /* Timeline Bar */
-        #timeline { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; background: linear-gradient(to top, rgba(6,6,16,0.95) 0%, rgba(6,6,16,0.85) 70%, rgba(6,6,16,0) 100%); padding: 0 22px 14px; transition: opacity 0.5s; }
+        @keyframes pelican-glow { 0%,100% { box-shadow: 0 0 10px #d4d8ff, 0 0 20px #d4d8ff; } 50% { box-shadow: 0 0 14px #d4d8ff, 0 0 28px rgba(212,216,255,0.6); } }
+        .card[data-const="PELICAN"] .card-dot { animation: pelican-glow 2s ease-in-out infinite; }
+
+        #timeline { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; background: linear-gradient(to top, rgba(2,2,8,0.95) 0%, rgba(2,2,8,0.8) 70%, transparent 100%); padding: 0 22px 14px; transition: opacity 0.5s; }
         .tl-scrub-container { position: relative; height: 28px; margin-bottom: 6px; cursor: pointer; }
         .tl-track { position: absolute; left: 0; right: 0; top: 13px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; }
-        .tl-track-fill { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, rgba(0,157,177,0.05), rgba(0,157,177,0.35)); border-radius: 1px; transition: width 0.05s linear; }
+        .tl-track-fill { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, rgba(0,157,177,0.05), rgba(0,157,177,0.35)); border-radius: 1px; }
         .tl-thumb { position: absolute; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--planet-teal); box-shadow: 0 0 10px rgba(0,157,177,0.5), 0 0 20px rgba(0,157,177,0.2); transform: translateX(-7px); pointer-events: none; will-change: left; }
-        .tl-thumb:hover, .tl-scrub-container:hover .tl-thumb { box-shadow: 0 0 14px rgba(0,157,177,0.7), 0 0 30px rgba(0,157,177,0.3); }
         .tl-ticks { position: absolute; left: 0; right: 0; top: 18px; display: flex; justify-content: space-between; pointer-events: none; }
-        .tl-tick { font-family: 'Source Code Pro', monospace; font-size: 8px; color: rgba(255,255,255,0.12); font-weight: 400; }
+        .tl-tick { font-family: 'Source Code Pro', monospace; font-size: 8px; color: rgba(255,255,255,0.12); }
         .tl-bar { display: flex; align-items: center; gap: 6px; }
         .tl-play { background: none; border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.2s; flex-shrink: 0; }
         .tl-play:hover { border-color: var(--planet-teal); color: var(--planet-teal); }
@@ -131,139 +122,109 @@
         .tl-speed { background: none; border: none; color: rgba(255,255,255,0.25); font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 500; padding: 4px 7px; border-radius: 4px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
         .tl-speed:hover { color: rgba(255,255,255,0.6); }
         .tl-speed.active { color: var(--planet-teal); background: rgba(0,157,177,0.08); }
+        .tl-custom-speed { width: 52px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: rgba(255,255,255,0.7); font-family: 'Source Code Pro', monospace; font-size: 9px; padding: 3px 5px; text-align: center; outline: none; -moz-appearance: textfield; }
+        .tl-custom-speed::-webkit-inner-spin-button, .tl-custom-speed::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .tl-custom-speed:focus { border-color: var(--planet-teal); color: var(--planet-teal); }
+        .tl-custom-speed::placeholder { color: rgba(255,255,255,0.15); }
         .tl-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.04); margin: 0 4px; flex-shrink: 0; }
         .tl-range-btns { display: flex; gap: 2px; }
         .tl-range { background: none; border: none; font-family: 'Source Code Pro', monospace; font-size: 8.5px; color: rgba(255,255,255,0.2); padding: 3px 5px; border-radius: 3px; cursor: pointer; transition: all 0.15s; }
         .tl-range:hover { color: rgba(255,255,255,0.5); }
         .tl-range.active { color: var(--planet-teal); background: rgba(0,157,177,0.06); }
         .tl-spacer { flex: 1; }
-        .tl-custom-speed { width: 52px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: rgba(255,255,255,0.7); font-family: 'Source Code Pro', monospace; font-size: 9px; font-weight: 500; padding: 3px 5px; text-align: center; outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
-        .tl-custom-speed::-webkit-inner-spin-button, .tl-custom-speed::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        .tl-custom-speed:focus { border-color: var(--planet-teal); color: var(--planet-teal); }
-        .tl-custom-speed::placeholder { color: rgba(255,255,255,0.15); }
         .tl-speed-label { font-family: 'Source Code Pro', monospace; font-size: 9px; color: rgba(0,157,177,0.6); font-weight: 500; white-space: nowrap; }
         .tl-clock { text-align: right; flex-shrink: 0; }
         .tl-clock-time { font-family: 'Source Code Pro', monospace; font-size: 22px; font-weight: 300; color: rgba(255,255,255,0.85); letter-spacing: 0.01em; line-height: 1; }
-        .tl-clock-date { font-family: 'Source Code Pro', monospace; font-size: 9.5px; font-weight: 400; color: var(--planet-grey); margin-top: 1px; }
-        .tl-source { font-size: 8px; color: rgba(255,255,255,0.12); margin-top: 1px; letter-spacing: 0.03em; }
+        .tl-clock-date { font-family: 'Source Code Pro', monospace; font-size: 9.5px; color: var(--planet-grey); margin-top: 1px; }
+        .tl-source { font-size: 8px; color: rgba(255,255,255,0.12); margin-top: 1px; }
 
-        /* Top-right buttons */
         .top-right-btns { position: fixed; top: 20px; right: 22px; z-index: 50; display: flex; gap: 5px; transition: opacity 0.5s; }
         .top-btn { background: var(--panel-bg); border: 1px solid var(--card-border); border-radius: 7px; padding: 6px 11px; color: var(--planet-grey); font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; backdrop-filter: blur(12px); transition: all 0.3s; }
         .top-btn:hover { color: #fff; border-color: rgba(0,157,177,0.35); }
 
-        /* Cinema Mode */
         #cinema-time { position: fixed; bottom: 20px; right: 22px; z-index: 50; font-family: 'Source Code Pro', monospace; font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.25); display: none; }
         #cinema-logo { position: fixed; bottom: 20px; left: 22px; z-index: 50; display: none; opacity: 0.15; }
         #cinema-logo svg { height: 14px; }
         body.cinema #logo, body.cinema #cards, body.cinema #timeline,
         body.cinema .top-right-btns, body.cinema #settings-toggle,
-        body.cinema #settings-panel, body.cinema #vignette { opacity: 0; pointer-events: none; }
+        body.cinema #settings-panel { opacity: 0; pointer-events: none; }
         body.cinema #cinema-time { display: block; }
         body.cinema #cinema-logo { display: block; }
 
-        /* Recording */
-        #rec-indicator { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(200, 30, 30, 0.85); color: #fff; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; padding: 4px 14px; border-radius: 14px; display: none; align-items: center; gap: 6px; backdrop-filter: blur(8px); }
+        #rec-indicator { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(200,30,30,0.85); color: #fff; font-family: 'Source Code Pro', monospace; font-size: 10px; font-weight: 600; padding: 4px 14px; border-radius: 14px; display: none; align-items: center; gap: 6px; backdrop-filter: blur(8px); }
         #rec-indicator .dot { width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: rec-pulse 1s ease infinite; }
         @keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }
 
-        /* Tooltip */
-        .sat-tooltip { position: absolute; background: rgba(10, 14, 20, 0.94); border: 1px solid rgba(0,157,177,0.2); border-radius: 7px; padding: 9px 13px; pointer-events: none; z-index: 200; font-size: 10.5px; line-height: 1.5; backdrop-filter: blur(10px); max-width: 250px; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-
-        /* Pelican pulse keyframes */
-        @keyframes pelican-glow { 0%,100% { box-shadow: 0 0 10px #d4d8ff, 0 0 20px #d4d8ff; } 50% { box-shadow: 0 0 14px #d4d8ff, 0 0 28px rgba(212,216,255,0.6); } }
-        .card[data-const="PELICAN"] .card-dot { animation: pelican-glow 2s ease-in-out infinite; }
+        .sat-tooltip { position: absolute; background: rgba(10,14,20,0.94); border: 1px solid rgba(0,157,177,0.2); border-radius: 7px; padding: 9px 13px; pointer-events: none; z-index: 200; font-size: 10.5px; line-height: 1.5; backdrop-filter: blur(10px); max-width: 250px; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
     </style>
 </head>
 <body>
 
-<div id="loading">
-    <div class="load-planet"><div class="core"></div><div class="ring"></div><div class="ring2"></div></div>
-    <p id="load-status">Initializing</p>
-</div>
+<div id="loading"><div class="load-planet"><div class="core"></div><div class="ring"></div><div class="ring2"></div></div><p id="load-status">Initializing</p></div>
 
 <div id="logo">
-    <svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="10" cy="12" r="4.5" fill="#009db1"/>
-        <path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/>
-    </svg>
+    <svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="12" r="4.5" fill="#009db1"/><path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/></svg>
     <div class="divider"></div>
     <span class="subtitle">Constellation Viewer</span>
 </div>
 
-<div id="settings-toggle" title="Display Settings (S)">&#9881;</div>
-
+<div id="settings-toggle" title="Settings (S)">&#9881;</div>
 <div id="settings-panel">
-    <div class="settings-section">
-        <div class="settings-section-title">Constellations</div>
-        <div id="vis-toggles"></div>
-    </div>
-    <div class="settings-section">
-        <div class="settings-section-title">Colors</div>
-        <div id="color-pickers"></div>
-    </div>
+    <div class="settings-section"><div class="settings-section-title">Constellations</div><div id="vis-toggles"></div></div>
+    <div class="settings-section"><div class="settings-section-title">Colors</div><div id="color-pickers"></div></div>
     <div class="settings-section">
         <div class="settings-section-title">Satellites</div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Dot Size</span><span class="slider-value" id="val-dot-size">1.0&times;</span></div>
-            <input type="range" id="sl-dot-size" min="0.3" max="5" step="0.1" value="1.0">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Glow Intensity</span><span class="slider-value" id="val-glow">1.0&times;</span></div>
-            <input type="range" id="sl-glow" min="0" max="4" step="0.1" value="1.0">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Altitude Offset</span><span class="slider-value" id="val-alt">1.0&times;</span></div>
-            <input type="range" id="sl-alt" min="0" max="5" step="0.1" value="1.0">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Labels</span><button class="mini-toggle" id="btn-labels">OFF</button></div>
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Label Size</span><span class="slider-value" id="val-label-size">9</span></div>
-            <input type="range" id="sl-label-size" min="6" max="18" step="1" value="9">
-        </div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Dot Size</span><span class="slider-value" id="val-dot-size">1.0&times;</span></div><input type="range" id="sl-dot-size" min="0.3" max="5" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Glow Intensity</span><span class="slider-value" id="val-glow">0.5&times;</span></div><input type="range" id="sl-glow" min="0" max="4" step="0.1" value="0.5"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Dot Opacity</span><span class="slider-value" id="val-dot-op">1.00</span></div><input type="range" id="sl-dot-op" min="0.1" max="1.5" step="0.02" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Altitude Scale</span><span class="slider-value" id="val-alt">1.0&times;</span></div><input type="range" id="sl-alt" min="0.2" max="5" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Labels</span><button class="mini-toggle" id="btn-labels">OFF</button></div><div style="margin-left:6px"><span class="slider-label" style="font-size:8px;color:rgba(255,255,255,0.35)">Doves</span><button class="mini-toggle" id="btn-flock-labels" style="font-size:7px;padding:1px 5px;margin-left:3px">OFF</button></div></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Label Size</span><span class="slider-value" id="val-label-size">1.0&times;</span></div><input type="range" id="sl-label-size" min="0.3" max="3.0" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Label Position</span><select id="sel-label-anchor" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"><option value="right">Right</option><option value="left">Left</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="upper-right">Upper Right</option><option value="upper-left">Upper Left</option><option value="lower-right">Lower Right</option><option value="lower-left">Lower Left</option></select></div></div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Ground Tracks</div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Trail Length</span><span class="slider-value" id="val-trail-len">1.0&times;</span></div>
-            <input type="range" id="sl-trail-len" min="0" max="5" step="0.1" value="1.0">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Trail Width</span><span class="slider-value" id="val-trail-w">1.0&times;</span></div>
-            <input type="range" id="sl-trail-w" min="0.2" max="5" step="0.1" value="1.0">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Trail Opacity</span><span class="slider-value" id="val-trail-op">1.0&times;</span></div>
-            <input type="range" id="sl-trail-op" min="0" max="2" step="0.05" value="1.0">
-        </div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Length</span><span class="slider-value" id="val-trail-len">1.0&times;</span></div><input type="range" id="sl-trail-len" min="0" max="5" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Opacity</span><span class="slider-value" id="val-trail-op">1.0&times;</span></div><input type="range" id="sl-trail-op" min="0" max="2" step="0.05" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Width</span><span class="slider-value" id="val-trail-w">1.0</span></div><input type="range" id="sl-trail-w" min="0.5" max="5" step="0.25" value="1.0"></div>
     </div>
     <div class="settings-section">
-        <div class="settings-section-title">Atmosphere</div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Star Intensity</span><span class="slider-value" id="val-stars">0.18</span></div>
-            <input type="range" id="sl-stars" min="0" max="1" step="0.02" value="0.18">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Atmosphere Haze</span><span class="slider-value" id="val-haze">0.04</span></div>
-            <input type="range" id="sl-haze" min="0" max="0.15" step="0.005" value="0.035">
-        </div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Space Brightness</span><span class="slider-value" id="val-space">1.0&times;</span></div>
-            <input type="range" id="sl-space" min="0" max="3" step="0.1" value="1.0">
-        </div>
+        <div class="settings-section-title">Atmosphere &amp; Lighting</div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Day/Night Cycle</span><button class="mini-toggle on" id="btn-daynight">ON</button></div></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Star Intensity</span><span class="slider-value" id="val-stars">0.6</span></div><input type="range" id="sl-stars" min="0" max="2" step="0.05" value="0.6"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Atmosphere Glow</span><span class="slider-value" id="val-atmo">1.0&times;</span></div><input type="range" id="sl-atmo" min="0" max="3" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Night Brightness</span><span class="slider-value" id="val-night">1.0&times;</span></div><input type="range" id="sl-night" min="0" max="3" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Day Brightness</span><span class="slider-value" id="val-day-bright">1.00</span></div><input type="range" id="sl-day-bright" min="0.2" max="2.0" step="0.02" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Day Saturation</span><span class="slider-value" id="val-day-sat">1.00</span></div><input type="range" id="sl-day-sat" min="0" max="2.0" step="0.02" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Night Saturation</span><span class="slider-value" id="val-night-sat">1.00</span></div><input type="range" id="sl-night-sat" min="0" max="2.0" step="0.02" value="1.0"></div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-section-title">Display</div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Clock Font Size</span><span class="slider-value" id="val-clock-sz">1.0&times;</span></div><input type="range" id="sl-clock-sz" min="0.5" max="3.0" step="0.1" value="1.0"></div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Camera</div>
-        <div class="slider-row">
-            <div class="slider-header"><span class="slider-label">Auto-Rotate Speed</span><span class="slider-value" id="val-rotate">1.0&times;</span></div>
-            <input type="range" id="sl-rotate" min="0" max="5" step="0.1" value="1.0">
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Auto-Rotate Speed</span><span class="slider-value" id="val-rotate">1.0&times;</span></div><input type="range" id="sl-rotate" min="0" max="5" step="0.1" value="1.0"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Field of View</span><span class="slider-value" id="val-fov">45&deg;</span></div><input type="range" id="sl-fov" min="15" max="90" step="1" value="45"></div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Damping</span><span class="slider-value" id="val-damp">0.04</span></div><input type="range" id="sl-damp" min="0.01" max="0.2" step="0.01" value="0.04"></div>
+        <div style="margin-top:6px">
+            <div class="settings-section-title" style="font-size:8.5px;margin-bottom:4px;color:rgba(255,255,255,0.3)">Presets (1-5)</div>
+            <div style="display:flex;gap:3px;flex-wrap:wrap">
+                <button class="settings-btn cam-preset" data-preset="hero" style="flex:1;min-width:60px">Hero</button>
+                <button class="settings-btn cam-preset" data-preset="top" style="flex:1;min-width:60px">Polar</button>
+                <button class="settings-btn cam-preset" data-preset="close" style="flex:1;min-width:60px">Close</button>
+                <button class="settings-btn cam-preset" data-preset="wide" style="flex:1;min-width:60px">Wide</button>
+                <button class="settings-btn cam-preset" data-preset="cinematic" style="flex:1;min-width:60px">Cine</button>
+            </div>
         </div>
     </div>
     <div class="settings-section">
-        <div class="settings-section-title">Basemap</div>
-        <div id="basemap-list"></div>
+        <div class="settings-section-title">Scenes <span style="font-size:7.5px;color:rgba(255,255,255,0.2);font-weight:400">&nbsp;Shift+1-9 recall &middot; Ctrl+Shift+1-9 save</span></div>
+        <div id="scene-slots" style="margin-bottom:6px"></div>
+        <div style="display:flex;gap:3px">
+            <button class="settings-btn" id="btn-scene-save" style="flex:1">Save to Next Slot</button>
+            <button class="settings-btn" id="btn-scene-copy" style="flex:1">Copy JSON</button>
+        </div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Orbital Data</div>
@@ -276,14 +237,10 @@
 <div id="cards"></div>
 
 <div id="timeline">
-    <div class="tl-scrub-container" id="tl-scrub">
-        <div class="tl-track"><div class="tl-track-fill" id="tl-fill"></div></div>
-        <div class="tl-thumb" id="tl-thumb"></div>
-        <div class="tl-ticks" id="tl-ticks"></div>
-    </div>
+    <div class="tl-scrub-container" id="tl-scrub"><div class="tl-track"><div class="tl-track-fill" id="tl-fill"></div></div><div class="tl-thumb" id="tl-thumb"></div><div class="tl-ticks" id="tl-ticks"></div></div>
     <div class="tl-bar">
-        <button class="tl-play" id="tl-play">&#9654;</button>
-        <div class="tl-speeds" id="tl-speeds">
+        <button class="tl-play" id="tl-play">&#9646;&#9646;</button>
+        <div class="tl-speeds">
             <button class="tl-speed" data-speed="1">1&times;</button>
             <button class="tl-speed" data-speed="10">10&times;</button>
             <button class="tl-speed active" data-speed="60">60&times;</button>
@@ -292,7 +249,7 @@
             <button class="tl-speed" data-speed="600">600&times;</button>
             <button class="tl-speed" data-speed="3600">3600&times;</button>
         </div>
-        <input type="number" class="tl-custom-speed" id="tl-custom" min="1" max="7200" placeholder="&times;" title="Custom speed multiplier">
+        <input type="number" class="tl-custom-speed" id="tl-custom" min="1" max="7200" placeholder="&times;" title="Custom speed">
         <div class="tl-divider"></div>
         <div class="tl-range-btns">
             <button class="tl-range" data-hours="1">1h</button>
@@ -317,80 +274,30 @@
 </div>
 
 <div id="cinema-time"></div>
-<div id="cinema-logo">
-    <svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="10" cy="12" r="4.5" fill="#009db1"/>
-        <path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/>
-    </svg>
-</div>
+<div id="cinema-logo"><svg viewBox="0 0 120 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="12" r="4.5" fill="#009db1"/><path d="M22 6.5h3.8c2.5 0 3.9 1.3 3.9 3.2 0 1.9-1.4 3.2-3.9 3.2H24v4.6h-2V6.5zm3.6 4.7c1.3 0 2-.6 2-1.5s-.7-1.5-2-1.5H24v3h1.6zM31.5 6.5H33v9h4.5v1.7h-6V6.5zM42.1 6.3h1.1l4.3 10.9h-2.1l-.9-2.4h-3.7l-.9 2.4h-2l4.2-10.9zm1.8 6.9l-1.3-3.5-1.3 3.5h2.6zM49.5 6.5h2l4.8 7v-7h1.9v10.7h-1.8l-5-7.2v7.2h-1.9V6.5zM60.8 6.5h7.2v1.7h-5.2v2.6h4.5v1.7h-4.5v2.9h5.3v1.7h-7.3V6.5zM72.9 8.2h-3V6.5h8v1.7h-3v9h-2v-9z" fill="white"/></svg></div>
 <div id="rec-indicator"><div class="dot"></div><span>REC</span></div>
 <div id="sat-tooltip" class="sat-tooltip"></div>
-<div id="vignette"></div>
-<div id="map"></div>
 
-<script>
-'use strict';
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ════════════════════════════════════════════════════════════════
-// CONFIG
+// CONSTANTS
 // ════════════════════════════════════════════════════════════════
+
+const EARTH_RADIUS = 1;
+const KM_SCALE = 1 / 6371;
+const DEG = Math.PI / 180;
+const TRAIL_SAMPLES = 40;
 
 const CONSTELLATIONS = {
-    PELICAN: {
-        label: 'Pelican', altKm: 440, gsd: '30 cm', swathKm: 32,
-        color: '#d4d8ff',
-        haloRadius: 30, haloBlur: 1,
-        glowRadius: 15, glowBlur: 0.5,
-        dotRadius: 6.5, dotOpacity: 0.95,
-        trailWidth: 2.2, trailMinutes: 14,
-        showTrailAtZoom: 0, altOffset: -6
-    },
-    SKYSAT: {
-        label: 'SkySat', altKm: 450, gsd: '50 cm', swathKm: 8,
-        color: '#2bc4d8',
-        haloRadius: 22, haloBlur: 1,
-        glowRadius: 11, glowBlur: 0.55,
-        dotRadius: 4.5, dotOpacity: 0.95,
-        trailWidth: 1.6, trailMinutes: 10,
-        showTrailAtZoom: 0, altOffset: -5
-    },
-    TANAGER: {
-        label: 'Tanager', altKm: 525, gsd: 'Hyperspectral', swathKm: 190,
-        color: '#f0b030',
-        haloRadius: 24, haloBlur: 1,
-        glowRadius: 13, glowBlur: 0.5,
-        dotRadius: 5.5, dotOpacity: 0.95,
-        trailWidth: 1.8, trailMinutes: 12,
-        showTrailAtZoom: 0, altOffset: -6
-    },
-    FLOCK: {
-        label: 'SuperDove', altKm: 500, gsd: '3\u20134 m', swathKm: 32,
-        color: '#009db1',
-        haloRadius: 12, haloBlur: 1,
-        glowRadius: 6, glowBlur: 0.6,
-        dotRadius: 2.4, dotOpacity: 0.88,
-        trailWidth: 1.0, trailMinutes: 5,
-        showTrailAtZoom: 2.2, altOffset: -3
-    }
+    PELICAN: { label: 'Pelican', altKm: 440, gsd: '30 cm', swathKm: 32, color: '#e8ecff', dotRadius: 3.2, trailMinutes: 14, showTrailAtZoom: 0 },
+    SKYSAT: { label: 'SkySat', altKm: 450, gsd: '50 cm', swathKm: 8, color: '#7ec8d4', dotRadius: 2.6, trailMinutes: 10, showTrailAtZoom: 0 },
+    TANAGER: { label: 'Tanager', altKm: 525, gsd: 'Hyperspectral', swathKm: 190, color: '#d4a84a', dotRadius: 2.8, trailMinutes: 12, showTrailAtZoom: 0 },
+    FLOCK: { label: 'SuperDove', altKm: 500, gsd: '3\u20134 m', swathKm: 32, color: '#47b8c8', dotRadius: 1.8, trailMinutes: 5, showTrailAtZoom: 0 }
 };
-
 const CONSTELLATION_ORDER = ['PELICAN', 'SKYSAT', 'TANAGER', 'FLOCK'];
-
-function deriveColors(cfg) {
-    const rgb = hexToRgb(cfg.color);
-    cfg._haloColor = `rgba(${rgb},0.07)`;
-    cfg._glowColor = `rgba(${rgb},0.26)`;
-    cfg._trailAlphas = [0, 0.06, 0.3, 0.55];
-}
-
-function hexToRgb(hex) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `${r},${g},${b}`;
-}
-
-CONSTELLATION_ORDER.forEach(k => deriveColors(CONSTELLATIONS[k]));
 
 const SAT_NAME_LOOKUP = {
     '58296':'Pelican-1','62631':'Pelican-2','65315':'Pelican-3',
@@ -402,96 +309,37 @@ const SAT_NAME_LOOKUP = {
     '42987':'SkySat-C11','43797':'SkySat-C12','43802':'SkySat-C13',
     '60507':'Tanager-1'
 };
-const TRAIL_SAMPLES = 20;
-
-const BASEMAPS = [
-    { id: 'dark-v11',      label: 'Mapbox Dark',       style: 'mapbox://styles/mapbox/dark-v11' },
-    { id: 'planet-basemap', label: 'Planet Basemap',   style: 'mapbox://styles/adoucett/cmmy6m4kx007701s9ghg51f0n' },
-    { id: 'planet-dark',   label: 'Planet Dark',       style: 'mapbox://styles/adoucett/cmmy6so6j004t01s7gu0x8zr3' },
-    { id: 'satellite-v9',  label: 'Satellite Imagery',  style: 'mapbox://styles/mapbox/satellite-v9' },
-    { id: 'nav-night',     label: 'Navigation Night',  style: 'mapbox://styles/mapbox/navigation-night-v1' },
-];
-let activeBasemap = 'planet-dark';
-let mapReady = false;
 
 // ════════════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════════════
 
 let allSatellites = [];
-let simTime = new Date();
+let simTimeMs = Date.now();
+const _simDate = new Date();
 let simSpeed = 60;
-let simPaused = true;
+let simPaused = false;
 let cinemaMode = false;
-let tleSource = null;
-let tleEpoch = null;
-let recording = false;
-let mediaRecorder = null;
-
-const settings = {
-    dotScale: 1.0,
-    glowScale: 1.0,
-    altScale: 1.0,
-    trailLenScale: 1.0,
-    trailWidthScale: 1.0,
-    trailOpacity: 1.0,
-    rotateSpeed: 1.0,
-    showLabels: false,
-    labelSize: 9,
-    starIntensity: 0.18,
-    horizonBlend: 0.035,
-    spaceBrightness: 1.0,
-    visibility: { PELICAN: true, SKYSAT: true, TANAGER: true, FLOCK: true }
-};
-
+let tleSource = null, tleEpoch = null;
+let recording = false, mediaRecorder = null;
+let isDraggingScrub = false;
 let timelineCenter = Date.now();
 let timelineSpanHours = 24;
 
-function timelineStart() { return timelineCenter - timelineSpanHours * 3600000 / 2; }
-function timelineEnd() { return timelineCenter + timelineSpanHours * 3600000 / 2; }
-function timelineFraction() {
-    const span = timelineSpanHours * 3600000;
-    return Math.max(0, Math.min(1, (simTime.getTime() - timelineStart()) / span));
-}
-
-// ════════════════════════════════════════════════════════════════
-// MAP
-// ════════════════════════════════════════════════════════════════
-
-mapboxgl.accessToken = 'pk.eyJ1IjoiYWRvdWNldHQiLCJhIjoiY2lvZDFsc2lwMDRnd3Zha2pneWpxcHh6biJ9.sbWgw2zPGyScsp-r4CYQnA';
-
-const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/adoucett/cmmy6so6j004t01s7gu0x8zr3',
-    projection: 'globe',
-    zoom: 1.5, center: [30, 15], pitch: 20, bearing: -15,
-    maxZoom: 8, fadeDuration: 0,
-    preserveDrawingBuffer: true, antialias: true
-});
-
-const fogConfig = {
-    color: 'rgb(8, 10, 18)',
-    'high-color': 'rgb(10, 12, 22)',
-    'horizon-blend': 0.035,
-    'space-color': 'rgb(5, 5, 12)',
-    'star-intensity': 0.18
+const settings = {
+    dotScale: 1.0, glowScale: 0.5, dotOpacity: 1.0, altScale: 1.0,
+    trailLenScale: 1.0, trailOpacity: 1.0, trailWidth: 1.0,
+    rotateSpeed: 1.0,
+    showLabels: false, showFlockLabels: false, labelScale: 1.0, labelAnchor: 'right',
+    dayNightCycle: true,
+    starIntensity: 0.6, atmosphereScale: 1.0, nightBrightness: 1.0,
+    dayBrightness: 1.0, daySaturation: 1.0, nightSaturation: 1.0,
+    clockScale: 1.0,
+    visibility: { PELICAN: true, SKYSAT: true, TANAGER: true, FLOCK: true }
 };
 
-map.on('style.load', () => {
-    map.setFog(fogConfig);
-    if (mapReady) {
-        initMapLayers();
-        initTooltips();
-        applySettings();
-        applyFog();
-        _lastTrailSimTime = 0;
-        updateSatPositions();
-        updateTrails();
-    }
-});
-
 // ════════════════════════════════════════════════════════════════
-// CLASSIFICATION
+// SGP4 (copied from v1)
 // ════════════════════════════════════════════════════════════════
 
 function classifySat(name) {
@@ -512,10 +360,6 @@ function shortName(name, c, noradId) {
     if (fm) return `${fm[1].toUpperCase()}-${fm[2]}`;
     return n;
 }
-
-// ════════════════════════════════════════════════════════════════
-// SGP4
-// ════════════════════════════════════════════════════════════════
 
 function normalizeLng(d) { while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
 
@@ -540,8 +384,18 @@ function parseTLEEpoch(tle1) {
     } catch { return null; }
 }
 
+function latLngAltToVec3(lat, lng, alt) {
+    const r = EARTH_RADIUS + alt * KM_SCALE * settings.altScale;
+    const latR = lat * DEG, lngR = lng * DEG;
+    return new THREE.Vector3(
+        r * Math.cos(latR) * Math.cos(lngR),
+        r * Math.sin(latR),
+        -r * Math.cos(latR) * Math.sin(lngR)
+    );
+}
+
 // ════════════════════════════════════════════════════════════════
-// TLE FETCH
+// TLE FETCH (copied from v1)
 // ════════════════════════════════════════════════════════════════
 
 const CORS_PROXIES = [
@@ -549,7 +403,6 @@ const CORS_PROXIES = [
     url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url => url
 ];
-
 const TLE_SOURCES = [
     { url: 'https://ephemerides.planet-labs.com/planet_mc.tle', label: 'Planet Ephemerides (GPS/UHF)' },
     { url: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=planet&FORMAT=tle', label: 'CelesTrak' },
@@ -557,34 +410,16 @@ const TLE_SOURCES = [
 ];
 
 async function fetchTLEFromUrl(url, isLocal) {
-    if (isLocal) {
-        const r = await fetch(url);
-        if (!r.ok) throw new Error(`Local HTTP ${r.status}`);
-        const txt = await r.text();
-        if (!txt.includes('1 ') || !txt.includes('2 ')) throw new Error('Local file not valid TLE');
-        return txt;
-    }
-    let lastErr = null;
+    if (isLocal) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); const t = await r.text(); if (!t.includes('1 ')) throw new Error('Invalid'); return t; }
     for (const proxy of CORS_PROXIES) {
-        try {
-            const fetchUrl = proxy(url);
-            console.log(`[TLE] Trying: ${fetchUrl.substring(0, 80)}...`);
-            const r = await fetch(fetchUrl, { signal: AbortSignal.timeout(12000) });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const txt = await r.text();
-            if (!txt.includes('1 ') || !txt.includes('2 ')) throw new Error('Not valid TLE data');
-            return txt;
-        } catch (e) {
-            lastErr = e;
-            console.warn(`[TLE] Proxy failed:`, e.message);
-        }
+        try { const r = await fetch(proxy(url), { signal: AbortSignal.timeout(12000) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); const t = await r.text(); if (!t.includes('1 ')) throw new Error('Invalid'); return t; }
+        catch (e) { console.warn('[TLE] proxy failed:', e.message); }
     }
-    throw lastErr || new Error('All proxies failed');
+    throw new Error('All proxies failed');
 }
 
 function parseTLEs(txt) {
-    const sats = [];
-    const seen = new Set();
+    const sats = [], seen = new Set();
     const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
     for (let i = 0; i < lines.length; i++) {
         if (!lines[i].startsWith('1 ')) continue;
@@ -593,21 +428,15 @@ function parseTLEs(txt) {
         const noradId = tle1.substring(2, 7).trim();
         if (!noradId || seen.has(noradId)) { i++; continue; }
         let name = `SAT-${noradId}`;
-        if (i > 0 && !lines[i - 1].startsWith('1 ') && !lines[i - 1].startsWith('2 ')) {
-            const raw = lines[i - 1];
-            name = raw.startsWith('0 ') ? raw.substring(2).trim() : raw.trim();
-        }
+        if (i > 0 && !lines[i-1].startsWith('1 ') && !lines[i-1].startsWith('2 ')) { const raw = lines[i-1]; name = raw.startsWith('0 ') ? raw.substring(2).trim() : raw.trim(); }
         try {
             const satrec = satellite.twoline2satrec(tle1, tle2);
             const c = classifySat(name);
-            sats.push({ id: noradId, name, satrec, shortName: shortName(name, c, noradId), constellation: c, tleEpoch: parseTLEEpoch(tle1), _lastPos: null });
+            sats.push({ id: noradId, name, satrec, shortName: shortName(name, c, noradId), constellation: c, tleEpoch: parseTLEEpoch(tle1), _lastPos: null, _feature: null });
             seen.add(noradId);
-        } catch (e) { console.warn(`[TLE] Parse failed for ${name}:`, e.message); }
+        } catch (e) { console.warn('[TLE] parse fail:', e.message); }
         i++;
     }
-    const counts = {};
-    sats.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
-    console.log(`[TLE] Parsed ${sats.length} satellites:`, counts);
     return sats;
 }
 
@@ -619,15 +448,10 @@ async function loadTLEs() {
             const txt = await fetchTLEFromUrl(src.url, src.local);
             const parsed = parseTLEs(txt);
             if (parsed.length > 0) {
-                allSatellites = parsed;
-                tleSource = src.label;
-                let newest = null;
-                for (const s of allSatellites) if (s.tleEpoch && (!newest || s.tleEpoch > newest)) newest = s.tleEpoch;
+                allSatellites = parsed; tleSource = src.label;
+                let newest = null; for (const s of allSatellites) if (s.tleEpoch && (!newest || s.tleEpoch > newest)) newest = s.tleEpoch;
                 tleEpoch = newest;
-                if (parsed.length < 100 && src !== TLE_SOURCES[TLE_SOURCES.length - 1]) {
-                    console.warn(`[TLE] Only ${parsed.length} sats, trying next source...`);
-                    continue;
-                }
+                if (parsed.length < 100 && src !== TLE_SOURCES[TLE_SOURCES.length - 1]) continue;
                 return;
             }
         } catch (e) { console.warn(`[TLE] ${src.label} failed:`, e.message); }
@@ -636,370 +460,677 @@ async function loadTLEs() {
     throw new Error('All TLE sources failed');
 }
 
-function setLoadStatus(msg) { const el = document.getElementById('load-status'); if (el) el.textContent = msg; }
+function setLoadStatus(msg) { document.getElementById('load-status').textContent = msg; }
 
 // ════════════════════════════════════════════════════════════════
-// MAP LAYERS
+// SUN POSITION
 // ════════════════════════════════════════════════════════════════
 
-function initMapLayers() {
-    for (const key of CONSTELLATION_ORDER) {
-        const cfg = CONSTELLATIONS[key];
-        const rgb = hexToRgb(cfg.color);
+function computeSunDirection(timeMs, target) {
+    const JD = timeMs / 86400000 + 2440587.5;
+    const n = JD - 2451545.0;
+    const L = (280.46 + 0.9856474 * n) % 360;
+    const g = ((357.528 + 0.9856003 * n) % 360) * DEG;
+    const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * DEG;
+    const epsilon = 23.439 * DEG;
+    const ra = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
+    const dec = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+    const gmst = (280.46061837 + 360.98564736629 * n) * DEG;
+    const ha = gmst - ra;
+    target.set(
+        Math.cos(dec) * Math.cos(ha),
+        Math.sin(dec),
+        Math.cos(dec) * Math.sin(ha)
+    ).normalize();
+}
 
-        map.addSource(`trail-${key}`, { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, lineMetrics: true });
-        map.addSource(`dots-${key}`, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+// ════════════════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ════════════════════════════════════════════════════════════════
 
-        map.addLayer({
-            id: `trail-${key}`, type: 'line', source: `trail-${key}`,
-            paint: {
-                'line-width': cfg.trailWidth,
-                'line-opacity': settings.trailOpacity,
-                'line-gradient': [
-                    'interpolate', ['linear'], ['line-progress'],
-                    0, `rgba(${rgb},0)`,
-                    0.4, `rgba(${rgb},0.06)`,
-                    0.85, `rgba(${rgb},0.3)`,
-                    1, `rgba(${rgb},0.55)`
-                ]
-            },
-            layout: { 'line-cap': 'round', 'line-join': 'round' }
-        });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.prepend(renderer.domElement);
 
-        if (key !== 'FLOCK') {
-            map.addLayer({
-                id: `halo-${key}`, type: 'circle', source: `dots-${key}`,
-                paint: {
-                    'circle-radius': cfg.haloRadius,
-                    'circle-color': cfg._haloColor,
-                    'circle-blur': cfg.haloBlur,
-                    'circle-translate': [0, cfg.altOffset],
-                    'circle-pitch-alignment': 'map'
-                }
-            });
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(0, 0.5, 3);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.04;
+controls.minDistance = 1.08;
+controls.maxDistance = 12;
+controls.rotateSpeed = 0.4;
+controls.zoomSpeed = 0.6;
+controls.enablePan = true;
+controls.panSpeed = 0.3;
+controls.target.set(0, 0, 0);
+
+const CAM_PRESETS = {
+    hero:      { pos: [1.8, 0.6, 2.2], target: [0, 0, 0], fov: 45 },
+    top:       { pos: [0, 3.5, 0.01], target: [0, 0, 0], fov: 45 },
+    close:     { pos: [0.6, 0.15, 1.2], target: [0, 0.05, 0], fov: 35 },
+    wide:      { pos: [0, 0.3, 5], target: [0, 0, 0], fov: 55 },
+    cinematic: { pos: [2.5, 0.2, 1.5], target: [0, -0.1, 0], fov: 28 },
+};
+
+function applyCamPreset(name) {
+    const p = CAM_PRESETS[name]; if (!p) return;
+    camera.position.set(...p.pos);
+    controls.target.set(...p.target);
+    camera.fov = p.fov;
+    camera.updateProjectionMatrix();
+    const fovSl = document.getElementById('sl-fov');
+    const fovVal = document.getElementById('val-fov');
+    if (fovSl) { fovSl.value = p.fov; fovVal.textContent = p.fov + '\u00b0'; }
+    controls.update();
+}
+
+// ════════════════════════════════════════════════════════════════
+// STARFIELD
+// ════════════════════════════════════════════════════════════════
+
+function createStarfield() {
+    const count = 6000;
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = 40 + Math.random() * 10;
+        positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i*3+2] = r * Math.cos(phi);
+        sizes[i] = 0.5 + Math.random() * 1.5;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    const mat = new THREE.ShaderMaterial({
+        uniforms: { uIntensity: { value: settings.starIntensity } },
+        vertexShader: `attribute float size; varying float vSize; void main() { vSize = size; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = size * (200.0 / -mv.z); gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `uniform float uIntensity; varying float vSize; void main() { float d = length(gl_PointCoord - 0.5) * 2.0; float alpha = smoothstep(1.0, 0.0, d) * uIntensity; gl_FragColor = vec4(vec3(0.85, 0.88, 0.95), alpha); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    return new THREE.Points(geo, mat);
+}
+
+const stars = createStarfield();
+scene.add(stars);
+
+// ════════════════════════════════════════════════════════════════
+// EARTH GLOBE
+// ════════════════════════════════════════════════════════════════
+
+const textureLoader = new THREE.TextureLoader();
+let earthMesh, atmosphereMesh, outerGlowMesh;
+const sunDir = new THREE.Vector3(1, 0, 0);
+
+const earthVertShader = `
+varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+void main() {
+    vUv = uv;
+    vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+    vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const earthFragShader = `
+uniform sampler2D uDayMap;
+uniform sampler2D uNightMap;
+uniform vec3 uSunDir;
+uniform float uNightBrightness;
+uniform float uDayNight;
+uniform float uDayBrightness;
+uniform float uDaySaturation;
+uniform float uNightSaturation;
+varying vec2 vUv;
+varying vec3 vNormal;
+
+void main() {
+    vec3 dayColor = texture2D(uDayMap, vUv).rgb;
+    float dayGrey = dot(dayColor, vec3(0.299, 0.587, 0.114));
+    dayColor = mix(vec3(dayGrey), dayColor, uDaySaturation) * uDayBrightness;
+
+    vec3 nightColor = texture2D(uNightMap, vUv).rgb;
+    float nightGrey = dot(nightColor, vec3(0.299, 0.587, 0.114));
+    nightColor = mix(vec3(nightGrey), nightColor, uNightSaturation) * uNightBrightness;
+
+    float NdotL = dot(vNormal, uSunDir);
+    float dayMix = smoothstep(-0.15, 0.2, NdotL);
+    float ambient = 0.06;
+    vec3 dayLit = dayColor * (ambient + (1.0 - ambient) * max(0.0, NdotL));
+    vec3 cycleColor = mix(nightColor, dayLit, dayMix);
+    float twilight = smoothstep(-0.15, 0.0, NdotL) * (1.0 - smoothstep(0.0, 0.1, NdotL));
+    cycleColor += vec3(0.6, 0.3, 0.1) * twilight * 0.15;
+    vec3 flatDayColor = dayColor * 0.85;
+    vec3 color = mix(flatDayColor, cycleColor, uDayNight);
+    gl_FragColor = vec4(color, 1.0);
+}`;
+
+const atmoVertShader = `
+varying vec3 vNormal;
+varying vec3 vWorldNormal;
+varying vec3 vViewDir;
+void main() {
+    vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+    vNormal = vWorldNormal;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vViewDir = normalize(cameraPosition - worldPos.xyz);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const atmoFragShader = `
+uniform vec3 uSunDir;
+uniform float uAtmoScale;
+varying vec3 vNormal;
+varying vec3 vViewDir;
+void main() {
+    float fresnel = 1.0 - max(0.0, dot(vNormal, vViewDir));
+    float NdotL = dot(vNormal, uSunDir);
+    float sunEdge = smoothstep(-0.2, 0.5, NdotL);
+
+    float rim = pow(fresnel, 5.0) * 0.55 * uAtmoScale;
+
+    float twilightBand = smoothstep(-0.25, 0.0, NdotL) * (1.0 - smoothstep(0.0, 0.2, NdotL));
+    vec3 dayLimb = vec3(0.45, 0.65, 1.0);
+    vec3 sunsetLimb = vec3(1.0, 0.45, 0.15);
+    vec3 nightLimb = vec3(0.1, 0.2, 0.45);
+    vec3 limbColor = mix(nightLimb * 0.1, dayLimb, sunEdge);
+    limbColor += sunsetLimb * twilightBand * 0.4;
+    float alpha = rim * (0.2 + sunEdge * 0.8);
+    gl_FragColor = vec4(limbColor, alpha);
+}`;
+
+async function createEarth() {
+    const [dayTex, nightTex] = await Promise.all([
+        textureLoader.loadAsync('WorldView/day_earth_8k.jpg'),
+        textureLoader.loadAsync('WorldView/night_earth_4k.jpg')
+    ]);
+    dayTex.colorSpace = THREE.SRGBColorSpace;
+    nightTex.colorSpace = THREE.SRGBColorSpace;
+    dayTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    nightTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 128, 64);
+    const earthMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uDayMap: { value: dayTex },
+            uNightMap: { value: nightTex },
+            uSunDir: { value: sunDir },
+            uNightBrightness: { value: settings.nightBrightness },
+            uDayNight: { value: settings.dayNightCycle ? 1.0 : 0.0 },
+            uDayBrightness: { value: settings.dayBrightness ?? 1.0 },
+            uDaySaturation: { value: settings.daySaturation ?? 1.0 },
+            uNightSaturation: { value: settings.nightSaturation ?? 1.0 }
+        },
+        vertexShader: earthVertShader,
+        fragmentShader: earthFragShader
+    });
+    earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    scene.add(earthMesh);
+
+    const atmoGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.008, 80, 40);
+    const atmoMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uSunDir: { value: sunDir },
+            uAtmoScale: { value: settings.atmosphereScale }
+        },
+        vertexShader: atmoVertShader,
+        fragmentShader: atmoFragShader,
+        transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    atmosphereMesh = new THREE.Mesh(atmoGeo, atmoMat);
+    scene.add(atmosphereMesh);
+
+    const outerGlowGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.4, 64, 32);
+    const outerGlowMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uSunDir: { value: sunDir },
+            uAtmoScale: { value: settings.atmosphereScale },
+            uEarthR: { value: EARTH_RADIUS }
+        },
+        vertexShader: `
+            varying vec3 vWorldPos;
+            void main() {
+                vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }`,
+        fragmentShader: `
+            uniform vec3 uSunDir;
+            uniform float uAtmoScale;
+            uniform float uEarthR;
+            varying vec3 vWorldPos;
+            void main() {
+                vec3 rayDir = normalize(vWorldPos - cameraPosition);
+                float b = dot(cameraPosition, rayDir);
+                float c = dot(cameraPosition, cameraPosition);
+                float closestDist = sqrt(max(0.0, c - b * b));
+
+                float limbDist = closestDist / uEarthR - 1.0;
+
+                float outerFade = exp(-max(0.0, limbDist) * max(0.0, limbDist) * 18.0);
+                float innerFade = smoothstep(-0.12, 0.01, limbDist);
+                float glow = outerFade * innerFade * uAtmoScale * 0.45;
+
+                vec3 fragDir = normalize(vWorldPos);
+                float NdotL = dot(fragDir, uSunDir);
+                float lit = smoothstep(-0.1, 0.6, NdotL);
+                float twilight = smoothstep(-0.3, -0.05, NdotL) * (1.0 - smoothstep(-0.05, 0.2, NdotL));
+
+                vec3 dayCol = vec3(0.4, 0.65, 1.0);
+                vec3 nightCol = vec3(0.08, 0.12, 0.3);
+                vec3 col = mix(nightCol * 0.2, dayCol, lit);
+                col += vec3(0.85, 0.4, 0.12) * twilight * 0.35;
+
+                gl_FragColor = vec4(col, glow * (0.12 + lit * 0.88));
+            }`,
+        transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    outerGlowMesh = new THREE.Mesh(outerGlowGeo, outerGlowMat);
+    scene.add(outerGlowMesh);
+}
+
+// ════════════════════════════════════════════════════════════════
+// SATELLITE RENDERER (pluggable — swap createSatRenderer for 3D models)
+// ════════════════════════════════════════════════════════════════
+
+function createSatRenderer(maxSats) {
+    const positions = new Float32Array(maxSats * 3);
+    const colors = new Float32Array(maxSats * 3);
+    const sizes = new Float32Array(maxSats);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const mat = new THREE.ShaderMaterial({
+        uniforms: {
+            uScale: { value: settings.dotScale },
+            uGlow: { value: settings.glowScale },
+            uOpacity: { value: settings.dotOpacity },
+            uSunDir: { value: sunDir }
+        },
+        vertexShader: `
+            attribute float size;
+            attribute vec3 color;
+            varying vec3 vColor;
+            varying float vSize;
+            uniform float uScale;
+            void main() {
+                vColor = color;
+                vSize = size * uScale;
+                vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = vSize * (120.0 / -mv.z);
+                gl_Position = projectionMatrix * mv;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vColor;
+            varying float vSize;
+            uniform float uGlow;
+            uniform float uOpacity;
+            void main() {
+                float d = length(gl_PointCoord - 0.5) * 2.0;
+                float core = 1.0 - smoothstep(0.0, 0.55, d);
+                float rim = smoothstep(0.4, 0.55, d) * (1.0 - smoothstep(0.55, 0.7, d));
+                float glow = exp(-d * d * 2.5) * uGlow * 0.18;
+                vec3 white = vec3(1.0);
+                vec3 col = mix(vColor, white, core * 0.65);
+                float coreAlpha = core * 0.92;
+                float totalAlpha = (coreAlpha + rim * 0.15 + glow) * uOpacity;
+                if (totalAlpha < 0.003) discard;
+                gl_FragColor = vec4(col, totalAlpha);
+            }
+        `,
+        transparent: true, depthWrite: false, blending: THREE.NormalBlending
+    });
+
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
+
+    return {
+        mesh: points,
+        update(satData) {
+            const pos = geo.attributes.position.array;
+            const col = geo.attributes.color.array;
+            const sz = geo.attributes.size.array;
+            let idx = 0;
+            for (const sat of satData) {
+                const v = sat._vec3;
+                pos[idx * 3] = v.x;
+                pos[idx * 3 + 1] = v.y;
+                pos[idx * 3 + 2] = v.z;
+                const c = sat._color;
+                col[idx * 3] = c.r;
+                col[idx * 3 + 1] = c.g;
+                col[idx * 3 + 2] = c.b;
+                sz[idx] = sat._size;
+                idx++;
+            }
+            geo.setDrawRange(0, idx);
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+            geo.attributes.size.needsUpdate = true;
+        },
+        setUniforms(dotScale, glowScale, dotOpacity) {
+            mat.uniforms.uScale.value = dotScale;
+            mat.uniforms.uGlow.value = glowScale;
+            if (dotOpacity !== undefined) mat.uniforms.uOpacity.value = dotOpacity;
+        },
+        updateSun(dir) {
+            mat.uniforms.uSunDir.value.copy(dir);
         }
+    };
+}
 
-        map.addLayer({
-            id: `glow-${key}`, type: 'circle', source: `dots-${key}`,
-            paint: {
-                'circle-radius': cfg.glowRadius,
-                'circle-color': cfg._glowColor,
-                'circle-blur': cfg.glowBlur,
-                'circle-translate': [0, cfg.altOffset],
-                'circle-pitch-alignment': 'map'
-            }
-        });
+// ════════════════════════════════════════════════════════════════
+// TRAIL RENDERER
+// ════════════════════════════════════════════════════════════════
 
-        map.addLayer({
-            id: `dot-${key}`, type: 'circle', source: `dots-${key}`,
-            paint: {
-                'circle-radius': cfg.dotRadius,
-                'circle-color': cfg.color,
-                'circle-opacity': cfg.dotOpacity,
-                'circle-translate': [0, cfg.altOffset],
-                'circle-pitch-alignment': 'map'
-            }
-        });
+const trailMaterials = {};
+const MAX_TRAIL_PTS = TRAIL_SAMPLES + 2;
+const _trailDate = new Date();
 
-        map.addLayer({
-            id: `label-${key}`, type: 'symbol', source: `dots-${key}`,
-            layout: {
-                'text-field': ['get', 'name'],
-                'text-size': settings.labelSize,
-                'text-offset': [0, -1.4],
-                'text-anchor': 'bottom',
-                'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-                'text-allow-overlap': false,
-                'text-ignore-placement': false,
-                'visibility': 'none'
+function initTrails() {
+    for (const key of CONSTELLATION_ORDER) {
+        const c = new THREE.Color(CONSTELLATIONS[key].color);
+        trailMaterials[key] = new THREE.ShaderMaterial({
+            uniforms: {
+                uColor: { value: c },
+                uOpacity: { value: 0.18 * settings.trailOpacity },
+                uCamPos: { value: camera.position }
             },
-            paint: {
-                'text-color': cfg.color,
-                'text-halo-color': 'rgba(0,0,0,0.75)',
-                'text-halo-width': 1.2,
-                'text-opacity': 0.85
-            }
+            vertexShader: `
+                varying vec3 vWorldPos;
+                void main() {
+                    vec4 wp = modelMatrix * vec4(position, 1.0);
+                    vWorldPos = wp.xyz;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+            fragmentShader: `
+                uniform vec3 uColor;
+                uniform float uOpacity;
+                uniform vec3 uCamPos;
+                varying vec3 vWorldPos;
+                void main() {
+                    vec3 toPoint = normalize(vWorldPos);
+                    vec3 toCam = normalize(uCamPos);
+                    float facing = dot(toPoint, toCam);
+                    float fade = smoothstep(-0.15, 0.35, facing);
+                    gl_FragColor = vec4(uColor, uOpacity * fade);
+                }`,
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+            linewidth: settings.trailWidth
         });
+    }
+    for (const sat of allSatellites) {
+        const posArr = new Float32Array(MAX_TRAIL_PTS * 3);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        geo.setDrawRange(0, 0);
+        const mat = trailMaterials[sat.constellation];
+        const line = new THREE.Line(geo, mat);
+        line.frustumCulled = false;
+        scene.add(line);
+        sat._trailLine = line;
+        sat._trailGeo = geo;
+        sat._trailPos = posArr;
+    }
+}
+
+let _lastTrailSimTime = 0;
+
+function updateTrailGeometry() {
+    const nowMs = simTimeMs;
+    if (simPaused && Math.abs(nowMs - _lastTrailSimTime) < 500) return;
+    _lastTrailSimTime = nowMs;
+
+    for (const sat of allSatellites) {
+        const key = sat.constellation;
+        if (!settings.visibility[key] || settings.trailLenScale <= 0) {
+            sat._trailGeo.setDrawRange(0, 0);
+            sat._trailCount = 0;
+            continue;
+        }
+        const cfg = CONSTELLATIONS[key];
+        const dur = cfg.trailMinutes * 60000 * settings.trailLenScale;
+        const highSpeed = simSpeed > 200;
+        const samples = key === 'FLOCK' ? (highSpeed ? 8 : 16) : (highSpeed ? 20 : TRAIL_SAMPLES);
+        const posArr = sat._trailPos;
+        let count = 0;
+        let px = NaN, py = NaN, pz = NaN;
+
+        for (let i = samples; i >= 1; i--) {
+            _trailDate.setTime(nowMs - (i / samples) * dur);
+            const p = getSatPos(sat.satrec, _trailDate);
+            if (!p) continue;
+            const r = EARTH_RADIUS + p.alt * KM_SCALE * settings.altScale;
+            const latR = p.lat * DEG, lngR = p.lng * DEG;
+            const x = r * Math.cos(latR) * Math.cos(lngR);
+            const y = r * Math.sin(latR);
+            const z = -r * Math.cos(latR) * Math.sin(lngR);
+            if (count > 0) {
+                const dx = x - px, dy = y - py, dz = z - pz;
+                const segLen = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (segLen > 0.6) { count = 0; }
+            }
+            px = x; py = y; pz = z;
+            const idx = count * 3;
+            posArr[idx]     = x;
+            posArr[idx + 1] = y;
+            posArr[idx + 2] = z;
+            count++;
+        }
+        sat._trailCount = count;
+        snapTrailEnd(sat);
+    }
+}
+
+function snapTrailEnd(sat) {
+    const v = sat._vec3;
+    if (!v || !sat._trailCount) return;
+    const count = sat._trailCount;
+    const posArr = sat._trailPos;
+    const idx = count * 3;
+    posArr[idx]     = v.x;
+    posArr[idx + 1] = v.y;
+    posArr[idx + 2] = v.z;
+    sat._trailGeo.setDrawRange(0, count + 1);
+    sat._trailGeo.attributes.position.needsUpdate = true;
+}
+
+function snapAllTrailEnds() {
+    for (const sat of allSatellites) {
+        if (!sat._trailCount || !settings.visibility[sat.constellation]) continue;
+        snapTrailEnd(sat);
     }
 }
 
 // ════════════════════════════════════════════════════════════════
-// APPLY SETTINGS
+// LABEL SPRITES
 // ════════════════════════════════════════════════════════════════
 
-function applySettings() {
-    for (const key of CONSTELLATION_ORDER) {
-        const cfg = CONSTELLATIONS[key];
-        const vis = settings.visibility[key] ? 'visible' : 'none';
-        const labelVis = (settings.visibility[key] && settings.showLabels) ? 'visible' : 'none';
+const _labelMap = new Map();
+let _labelsDirty = true;
 
-        ['trail', 'halo', 'glow', 'dot'].forEach(l => {
-            try { map.setLayoutProperty(`${l}-${key}`, 'visibility', vis); } catch {}
-        });
-        try { map.setLayoutProperty(`label-${key}`, 'visibility', labelVis); } catch {}
+function createLabelTexture(text, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = '600 36px Source Code Pro, monospace';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 32);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
 
-        const ds = settings.dotScale;
-        const gs = settings.glowScale;
-        const altPx = cfg.altOffset * settings.altScale;
+function rebuildLabels() {
+    for (const [, entry] of _labelMap) {
+        scene.remove(entry.sprite);
+        if (entry.sprite.material.map) entry.sprite.material.map.dispose();
+        entry.sprite.material.dispose();
+    }
+    _labelMap.clear();
+    if (!settings.showLabels) return;
 
-        try { map.setPaintProperty(`dot-${key}`, 'circle-radius', cfg.dotRadius * ds); } catch {}
-        try { map.setPaintProperty(`dot-${key}`, 'circle-color', cfg.color); } catch {}
-        try { map.setPaintProperty(`dot-${key}`, 'circle-translate', [0, altPx]); } catch {}
-        try { map.setPaintProperty(`glow-${key}`, 'circle-radius', cfg.glowRadius * ds * gs); } catch {}
-        try { map.setPaintProperty(`glow-${key}`, 'circle-color', cfg._glowColor); } catch {}
-        try { map.setPaintProperty(`glow-${key}`, 'circle-translate', [0, altPx]); } catch {}
-        if (key !== 'FLOCK') {
-            try { map.setPaintProperty(`halo-${key}`, 'circle-radius', cfg.haloRadius * ds * gs); } catch {}
-            try { map.setPaintProperty(`halo-${key}`, 'circle-color', cfg._haloColor); } catch {}
-            try { map.setPaintProperty(`halo-${key}`, 'circle-translate', [0, altPx]); } catch {}
-        }
-        try { map.setPaintProperty(`trail-${key}`, 'line-width', cfg.trailWidth * settings.trailWidthScale); } catch {}
-        try { map.setPaintProperty(`trail-${key}`, 'line-opacity', settings.trailOpacity); } catch {}
-        try { map.setLayoutProperty(`label-${key}`, 'text-size', settings.labelSize); } catch {}
-        try { map.setPaintProperty(`label-${key}`, 'text-color', cfg.color); } catch {}
+    for (const sat of allSatellites) {
+        if (!settings.visibility[sat.constellation]) continue;
+        if (sat.constellation === 'FLOCK' && !settings.showFlockLabels) continue;
+        const cfg = CONSTELLATIONS[sat.constellation];
+        const tex = createLabelTexture(sat.shortName, cfg.color);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, sizeAttenuation: true });
+        const sprite = new THREE.Sprite(mat);
+        const s = settings.labelScale;
+        sprite.scale.set(0.16 * s, 0.02 * s, 1);
+        scene.add(sprite);
+        _labelMap.set(sat.id, { sprite, sat });
+    }
+    _labelsDirty = false;
+}
+
+const LABEL_ANCHORS = {
+    'right':       { dx:  1, dy:  0.3 },
+    'left':        { dx: -1, dy:  0.3 },
+    'top':         { dx:  0, dy:  1   },
+    'bottom':      { dx:  0, dy: -0.6 },
+    'upper-right': { dx:  0.8, dy:  0.8 },
+    'upper-left':  { dx: -0.8, dy:  0.8 },
+    'lower-right': { dx:  0.8, dy: -0.5 },
+    'lower-left':  { dx: -0.8, dy: -0.5 }
+};
+
+function updateLabelPositions() {
+    if (_labelMap.size === 0) return;
+    const s = settings.labelScale;
+    const anchor = LABEL_ANCHORS[settings.labelAnchor] || LABEL_ANCHORS['right'];
+    const off = 0.022 * s;
+    for (const [, entry] of _labelMap) {
+        const v = entry.sat._vec3;
+        if (!v) continue;
+        const len = v.length() || 1;
+        const radial = off;
+        const nx = v.x / len, ny = v.y / len, nz = v.z / len;
+        entry.sprite.position.set(
+            v.x + nx * radial + anchor.dx * off,
+            v.y + ny * radial * 0.3 + anchor.dy * off,
+            v.z + nz * radial + anchor.dx * off * (nz / (Math.abs(nz) + 0.001)) * 0.3
+        );
     }
 }
 
-function applyFog() {
-    fogConfig['star-intensity'] = settings.starIntensity;
-    fogConfig['horizon-blend'] = settings.horizonBlend;
-    const b = Math.round(5 * settings.spaceBrightness);
-    const b2 = Math.round(12 * settings.spaceBrightness);
-    fogConfig['space-color'] = `rgb(${b}, ${b}, ${b2})`;
-    try { map.setFog(fogConfig); } catch {}
-}
-
-function updateConstellationColor(key, hex) {
-    CONSTELLATIONS[key].color = hex;
-    deriveColors(CONSTELLATIONS[key]);
-    applySettings();
-
-    const rgb = hexToRgb(hex);
-    try {
-        map.setPaintProperty(`trail-${key}`, 'line-gradient', [
-            'interpolate', ['linear'], ['line-progress'],
-            0, `rgba(${rgb},0)`, 0.4, `rgba(${rgb},0.06)`,
-            0.85, `rgba(${rgb},0.3)`, 1, `rgba(${rgb},0.55)`
-        ]);
-    } catch {}
-
-    buildCards();
-    buildVisToggles();
+function scaleLabelSprites() {
+    const s = settings.labelScale;
+    for (const [, entry] of _labelMap) {
+        entry.sprite.scale.set(0.16 * s, 0.02 * s, 1);
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
-// UPDATE POSITIONS + TRAILS
+// UPDATE SATELLITES
 // ════════════════════════════════════════════════════════════════
 
-const emptyFC = Object.freeze({ type: 'FeatureCollection', features: [] });
-
-const _dotBuckets = {};
-const _dotFCs = {};
-CONSTELLATION_ORDER.forEach(k => {
-    _dotBuckets[k] = [];
-    _dotFCs[k] = { type: 'FeatureCollection', features: _dotBuckets[k] };
-});
+let satRenderer = null;
+const _tempColor = new THREE.Color();
 
 function updateSatPositions() {
-    const now = simTime;
-    CONSTELLATION_ORDER.forEach(k => { _dotBuckets[k].length = 0; });
+    _simDate.setTime(simTimeMs);
+    const now = _simDate;
+    const visibleSats = [];
 
     for (const sat of allSatellites) {
         if (!settings.visibility[sat.constellation]) continue;
         const pos = getSatPos(sat.satrec, now);
         if (!pos) continue;
         sat._lastPos = pos;
-
-        if (!sat._feature) {
-            sat._feature = {
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [0, 0] },
-                properties: { name: sat.shortName, id: sat.id, alt: 0 }
-            };
-        }
-        sat._feature.geometry.coordinates[0] = pos.lng;
-        sat._feature.geometry.coordinates[1] = pos.lat;
-        sat._feature.properties.alt = Math.round(pos.alt);
-        _dotBuckets[sat.constellation].push(sat._feature);
-    }
-
-    for (const key of CONSTELLATION_ORDER) {
-        const src = map.getSource(`dots-${key}`);
-        if (src) src.setData(_dotFCs[key]);
-    }
-}
-
-let _lastTrailSimTime = 0;
-
-function updateTrails() {
-    const nowMs = simTime.getTime();
-    if (simPaused && Math.abs(nowMs - _lastTrailSimTime) < 500) return;
-    _lastTrailSimTime = nowMs;
-
-    const zoom = map.getZoom();
-    const trailsByConst = {};
-    CONSTELLATION_ORDER.forEach(k => { trailsByConst[k] = []; });
-
-    const highSpeed = simSpeed > 200;
-    const baseSamples = highSpeed ? 14 : TRAIL_SAMPLES;
-    const flockSamples = highSpeed ? 8 : 12;
-
-    for (const sat of allSatellites) {
-        if (!settings.visibility[sat.constellation]) continue;
+        if (!sat._vec3) sat._vec3 = new THREE.Vector3();
+        const r = EARTH_RADIUS + pos.alt * KM_SCALE * settings.altScale;
+        const latR = pos.lat * DEG, lngR = pos.lng * DEG;
+        sat._vec3.set(r * Math.cos(latR) * Math.cos(lngR), r * Math.sin(latR), -r * Math.cos(latR) * Math.sin(lngR));
         const cfg = CONSTELLATIONS[sat.constellation];
-        if (zoom < cfg.showTrailAtZoom) continue;
-        const dur = cfg.trailMinutes * 60000 * settings.trailLenScale;
-        if (dur <= 0) continue;
-
-        const samples = (sat.constellation === 'FLOCK') ? flockSamples : baseSamples;
-        const coords = [];
-        for (let i = samples; i >= 1; i--) {
-            const t = new Date(nowMs - (i / samples) * dur);
-            const p = getSatPos(sat.satrec, t);
-            if (p) {
-                if (coords.length > 0 && Math.abs(p.lng - coords[coords.length - 1][0]) > 170) continue;
-                coords.push([p.lng, p.lat]);
-            }
-        }
-        if (sat._lastPos) {
-            const lp = sat._lastPos;
-            if (coords.length === 0 || Math.abs(lp.lng - coords[coords.length - 1][0]) <= 170) {
-                coords.push([lp.lng, lp.lat]);
-            }
-        }
-        if (coords.length >= 2) {
-            trailsByConst[sat.constellation].push({
-                type: 'Feature',
-                geometry: { type: 'LineString', coordinates: coords },
-                properties: {}
-            });
-        }
+        if (!sat._color) { _tempColor.set(cfg.color); sat._color = { r: _tempColor.r, g: _tempColor.g, b: _tempColor.b }; }
+        sat._size = cfg.dotRadius;
+        visibleSats.push(sat);
     }
 
-    for (const key of CONSTELLATION_ORDER) {
-        const src = map.getSource(`trail-${key}`);
-        if (!src) continue;
-        src.setData(settings.visibility[key] && settings.trailLenScale > 0
-            ? { type: 'FeatureCollection', features: trailsByConst[key] }
-            : emptyFC);
-    }
+    _lastVisibleSats = visibleSats;
+    if (satRenderer) satRenderer.update(visibleSats);
+    return visibleSats;
 }
 
 // ════════════════════════════════════════════════════════════════
-// TOOLTIPS
+// TIMELINE (copied from v1)
 // ════════════════════════════════════════════════════════════════
 
-function initTooltips() {
-    const tooltip = document.getElementById('sat-tooltip');
-    const dotLayers = CONSTELLATION_ORDER.map(k => `dot-${k}`);
-    for (const layerId of dotLayers) {
-        map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; tooltip.style.display = 'none'; });
-        map.on('mousemove', layerId, (e) => {
-            if (!e.features?.length) return;
-            const p = e.features[0].properties;
-            const key = layerId.replace('dot-', '');
-            const cfg = CONSTELLATIONS[key];
-            tooltip.innerHTML = `<div style="font-weight:600;color:${cfg.color};margin-bottom:2px">${p.name} <span style="font-size:8.5px;color:#919698;font-weight:400;margin-left:3px">${cfg.label} \u00B7 NORAD ${p.id}</span></div><div style="color:#919698;font-size:10px">Alt: <span style="color:#fff">${p.alt} km</span> \u00A0 GSD: <span style="color:#fff">${cfg.gsd}</span> \u00A0 Swath: <span style="color:#fff">${cfg.swathKm} km</span></div>`;
-            tooltip.style.display = 'block';
-            tooltip.style.left = (e.point.x + 14) + 'px';
-            tooltip.style.top = (e.point.y - 14) + 'px';
-        });
-    }
-}
-
-// ════════════════════════════════════════════════════════════════
-// TIMELINE SCRUBBER
-// ════════════════════════════════════════════════════════════════
-
-let isDraggingScrub = false;
+function timelineStart() { return timelineCenter - timelineSpanHours * 3600000 / 2; }
+function timelineEnd() { return timelineCenter + timelineSpanHours * 3600000 / 2; }
+function timelineFraction() { return Math.max(0, Math.min(1, (simTimeMs - timelineStart()) / (timelineSpanHours * 3600000))); }
 
 function initTimeline() {
     const scrub = document.getElementById('tl-scrub');
-    const thumb = document.getElementById('tl-thumb');
-
     function scrubFromEvent(e) {
         const rect = scrub.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        const span = timelineSpanHours * 3600000;
-        simTime = new Date(timelineStart() + frac * span);
+        const x = (e.touches ? e.touches[0].clientX : e.clientX);
+        const frac = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
+        simTimeMs = timelineStart() + frac * timelineSpanHours * 3600000;
     }
-
-    scrub.addEventListener('mousedown', (e) => {
-        isDraggingScrub = true;
-        if (!simPaused) togglePause();
-        scrubFromEvent(e);
-    });
-    window.addEventListener('mousemove', (e) => { if (isDraggingScrub) scrubFromEvent(e); });
+    scrub.addEventListener('mousedown', e => { isDraggingScrub = true; if (!simPaused) togglePause(); scrubFromEvent(e); });
+    window.addEventListener('mousemove', e => { if (isDraggingScrub) scrubFromEvent(e); });
     window.addEventListener('mouseup', () => { isDraggingScrub = false; });
-
-    scrub.addEventListener('touchstart', (e) => {
-        isDraggingScrub = true;
-        if (!simPaused) togglePause();
-        scrubFromEvent(e);
-    }, { passive: true });
-    window.addEventListener('touchmove', (e) => { if (isDraggingScrub) scrubFromEvent(e); }, { passive: true });
+    scrub.addEventListener('touchstart', e => { isDraggingScrub = true; if (!simPaused) togglePause(); scrubFromEvent(e); }, { passive: true });
+    window.addEventListener('touchmove', e => { if (isDraggingScrub) scrubFromEvent(e); }, { passive: true });
     window.addEventListener('touchend', () => { isDraggingScrub = false; });
-
     document.querySelectorAll('.tl-range').forEach(btn => {
         btn.addEventListener('click', () => {
             timelineSpanHours = parseInt(btn.dataset.hours);
-            timelineCenter = simTime.getTime();
+            timelineCenter = simTimeMs;
             document.querySelectorAll('.tl-range').forEach(b => b.classList.toggle('active', b === btn));
             updateTimelineTicks();
         });
     });
-
     updateTimelineTicks();
 }
 
 function updateTimelineTicks() {
     const ticks = document.getElementById('tl-ticks');
-    const count = 7;
-    const span = timelineSpanHours * 3600000;
     let html = '';
-    for (let i = 0; i < count; i++) {
-        const t = new Date(timelineStart() + (i / (count - 1)) * span);
-        const hh = String(t.getUTCHours()).padStart(2, '0');
-        const mm = String(t.getUTCMinutes()).padStart(2, '0');
-        html += `<span class="tl-tick">${hh}:${mm}</span>`;
+    for (let i = 0; i < 7; i++) {
+        const t = new Date(timelineStart() + (i / 6) * timelineSpanHours * 3600000);
+        html += `<span class="tl-tick">${String(t.getUTCHours()).padStart(2,'0')}:${String(t.getUTCMinutes()).padStart(2,'0')}</span>`;
     }
     ticks.innerHTML = html;
 }
 
 function updateTimelineUI() {
-    const t = simTime.getTime();
-    const start = timelineStart();
-    const end = timelineEnd();
-
-    if (t < start || t > end) {
-        timelineCenter = t;
-        updateTimelineTicks();
-    }
-
+    const t = simTimeMs;
+    if (t < timelineStart() || t > timelineEnd()) { timelineCenter = t; updateTimelineTicks(); }
     const frac = timelineFraction();
-    const thumb = document.getElementById('tl-thumb');
-    const fill = document.getElementById('tl-fill');
     const scrub = document.getElementById('tl-scrub');
-    const w = scrub.offsetWidth;
-    thumb.style.left = (frac * w) + 'px';
-    fill.style.width = (frac * 100) + '%';
+    document.getElementById('tl-thumb').style.left = (frac * scrub.offsetWidth) + 'px';
+    document.getElementById('tl-fill').style.width = (frac * 100) + '%';
 
+    _simDate.setTime(simTimeMs);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const h = String(simTime.getUTCHours()).padStart(2, '0');
-    const m = String(simTime.getUTCMinutes()).padStart(2, '0');
-    const s = String(simTime.getUTCSeconds()).padStart(2, '0');
+    const h = String(_simDate.getUTCHours()).padStart(2,'0'), m = String(_simDate.getUTCMinutes()).padStart(2,'0'), s = String(_simDate.getUTCSeconds()).padStart(2,'0');
     const timeStr = `${h}:${m}:${s} UTC`;
-    const dateStr = `${simTime.getUTCDate()} ${months[simTime.getUTCMonth()]} ${simTime.getUTCFullYear()}`;
-
+    const dateStr = `${_simDate.getUTCDate()} ${months[_simDate.getUTCMonth()]} ${_simDate.getUTCFullYear()}`;
     document.getElementById('tl-clock-time').textContent = timeStr;
     document.getElementById('tl-clock-date').textContent = dateStr;
     document.getElementById('cinema-time').textContent = `${timeStr}  \u00B7  ${dateStr}`;
 }
 
 // ════════════════════════════════════════════════════════════════
-// SPEED / PAUSE
+// SPEED / PAUSE / UI
 // ════════════════════════════════════════════════════════════════
 
 function setSpeed(speed) {
@@ -1015,10 +1146,6 @@ function togglePause() {
     document.getElementById('tl-play').innerHTML = simPaused ? '&#9654;' : '&#9646;&#9646;';
 }
 
-// ════════════════════════════════════════════════════════════════
-// UI BUILD
-// ════════════════════════════════════════════════════════════════
-
 function buildCards() {
     const container = document.getElementById('cards');
     const counts = {};
@@ -1026,67 +1153,44 @@ function buildCards() {
     let html = `<div id="sat-header"><span class="total-count">${allSatellites.length}</span><span class="total-label">Active Satellites</span></div>`;
     html += CONSTELLATION_ORDER.map(key => {
         const cfg = CONSTELLATIONS[key];
-        return `<div class="card${settings.visibility[key] ? '' : ' off'}" data-const="${key}">
-            <div class="card-header">
-                <div class="card-dot" style="color:${cfg.color};background:${cfg.color}"></div>
-                <span class="card-name">${cfg.label}</span>
-                <span class="card-count">${counts[key] || 0}</span>
-            </div>
-            <div class="card-meta">
-                <span><span class="v">${cfg.altKm} km</span> alt</span>
-                <span><span class="v">${cfg.gsd}</span> GSD</span>
-                <span><span class="v">${cfg.swathKm} km</span> swath</span>
-            </div>
-        </div>`;
+        return `<div class="card${settings.visibility[key] ? '' : ' off'}" data-const="${key}"><div class="card-header"><div class="card-dot" style="color:${cfg.color};background:${cfg.color}"></div><span class="card-name">${cfg.label}</span><span class="card-count">${counts[key]||0}</span></div><div class="card-meta"><span><span class="v">${cfg.altKm} km</span> alt</span><span><span class="v">${cfg.gsd}</span> GSD</span><span><span class="v">${cfg.swathKm} km</span> swath</span></div></div>`;
     }).join('');
     container.innerHTML = html;
     container.querySelectorAll('.card').forEach(card => {
-        card.addEventListener('click', () => {
-            const key = card.dataset.const;
-            settings.visibility[key] = !settings.visibility[key];
-            card.classList.toggle('off', !settings.visibility[key]);
-            applySettings();
-            syncVisToggles();
-        });
+        card.addEventListener('click', () => { const k = card.dataset.const; settings.visibility[k] = !settings.visibility[k]; card.classList.toggle('off', !settings.visibility[k]); syncVisToggles(); _labelsDirty = true; });
     });
 }
 
 function buildVisToggles() {
-    const container = document.getElementById('vis-toggles');
+    const c = document.getElementById('vis-toggles');
     const counts = {};
     allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
-    container.innerHTML = CONSTELLATION_ORDER.map(key => {
+    c.innerHTML = CONSTELLATION_ORDER.map(key => {
         const cfg = CONSTELLATIONS[key];
-        return `<div class="toggle-row${settings.visibility[key] ? '' : ' off'}" data-const="${key}">
-            <div class="toggle-indicator" style="color:${cfg.color}"></div>
-            <span class="toggle-label">${cfg.label}</span>
-            <span class="toggle-count">${counts[key] || 0}</span>
-        </div>`;
+        return `<div class="toggle-row${settings.visibility[key] ? '' : ' off'}" data-const="${key}"><div class="toggle-indicator" style="color:${cfg.color}"></div><span class="toggle-label">${cfg.label}</span><span class="toggle-count">${counts[key]||0}</span></div>`;
     }).join('');
-    container.querySelectorAll('.toggle-row').forEach(row => {
-        row.addEventListener('click', () => {
-            const key = row.dataset.const;
-            settings.visibility[key] = !settings.visibility[key];
-            syncVisToggles(); syncCards(); applySettings();
-        });
+    c.querySelectorAll('.toggle-row').forEach(row => {
+        row.addEventListener('click', () => { const k = row.dataset.const; settings.visibility[k] = !settings.visibility[k]; syncVisToggles(); syncCards(); _labelsDirty = true; });
     });
 }
 
 function buildColorPickers() {
-    const container = document.getElementById('color-pickers');
-    container.innerHTML = CONSTELLATION_ORDER.map(key => {
+    const c = document.getElementById('color-pickers');
+    c.innerHTML = CONSTELLATION_ORDER.map(key => {
         const cfg = CONSTELLATIONS[key];
-        return `<div class="color-row">
-            <input type="color" value="${cfg.color}" class="color-swatch" data-const="${key}">
-            <span class="color-name">${cfg.label}</span>
-            <span class="color-hex">${cfg.color}</span>
-        </div>`;
+        return `<div class="color-row"><input type="color" value="${cfg.color}" class="color-swatch" data-const="${key}"><span class="color-name">${cfg.label}</span><span class="color-hex">${cfg.color}</span></div>`;
     }).join('');
-    container.querySelectorAll('.color-swatch').forEach(sw => {
+    c.querySelectorAll('.color-swatch').forEach(sw => {
         sw.addEventListener('input', () => {
             const key = sw.dataset.const;
-            updateConstellationColor(key, sw.value);
+            CONSTELLATIONS[key].color = sw.value;
             sw.closest('.color-row').querySelector('.color-hex').textContent = sw.value;
+            const c = new THREE.Color(sw.value);
+            for (const sat of allSatellites) {
+                if (sat.constellation === key) sat._color = { r: c.r, g: c.g, b: c.b };
+            }
+            if (trailMaterials[key]) trailMaterials[key].uniforms.uColor.value.set(sw.value);
+            buildCards(); buildVisToggles(); _labelsDirty = true;
         });
     });
 }
@@ -1099,15 +1203,14 @@ function updateDataSource() {
     if (!tleSource) return;
     const counts = {};
     allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
-    const breakdown = CONSTELLATION_ORDER.map(k => `${CONSTELLATIONS[k].label}: ${counts[k] || 0}`).join(' \u00B7 ');
-    el.textContent = `${tleSource} \u00B7 ${allSatellites.length} sats (${breakdown})`;
+    el.textContent = `${tleSource} \u00B7 ${allSatellites.length} sats`;
 }
 
 function updateEpochInfo() {
     const el = document.getElementById('epoch-info');
     if (!tleEpoch) { el.textContent = 'No epoch data'; return; }
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const h = String(tleEpoch.getUTCHours()).padStart(2, '0'), m = String(tleEpoch.getUTCMinutes()).padStart(2, '0');
+    const h = String(tleEpoch.getUTCHours()).padStart(2,'0'), m = String(tleEpoch.getUTCMinutes()).padStart(2,'0');
     const ageH = Math.floor((Date.now() - tleEpoch.getTime()) / 3600000);
     el.innerHTML = `Epoch: ${tleEpoch.getUTCDate()} ${months[tleEpoch.getUTCMonth()]} ${tleEpoch.getUTCFullYear()} ${h}:${m} UTC<br>Age: ${ageH < 1 ? '<1' : ageH} hr`;
 }
@@ -1116,63 +1219,191 @@ function updateEpochInfo() {
 // CINEMA + RECORDING
 // ════════════════════════════════════════════════════════════════
 
-function toggleCinema() {
-    cinemaMode = !cinemaMode;
-    document.body.classList.toggle('cinema', cinemaMode);
-    if (cinemaMode && simPaused) togglePause();
-}
-
-let autoRotateBearing = -15;
-function autoRotateStep(dt) {
-    if (!cinemaMode) return;
-    autoRotateBearing += dt * 0.002 * settings.rotateSpeed;
-    map.setBearing(autoRotateBearing % 360);
-}
+function toggleCinema() { cinemaMode = !cinemaMode; document.body.classList.toggle('cinema', cinemaMode); if (cinemaMode && simPaused) togglePause(); }
 
 function toggleRecording() { if (recording) stopRecording(); else startRecording(); }
 function startRecording() {
     try {
-        const stream = map.getCanvas().captureStream(30);
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 12000000 });
+        const stream = renderer.domElement.captureStream(30);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 16000000 });
         const chunks = [];
         mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-        mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `planet-constellation-${Date.now()}.webm`;
-            a.click();
-        };
-        mediaRecorder.start();
-        recording = true;
+        mediaRecorder.onstop = () => { const blob = new Blob(chunks, { type: 'video/webm' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `planet-v2-${Date.now()}.webm`; a.click(); };
+        mediaRecorder.start(); recording = true;
         document.getElementById('rec-indicator').style.display = 'flex';
     } catch (e) { console.error('Recording failed:', e); }
 }
-function stopRecording() {
-    if (mediaRecorder && recording) { mediaRecorder.stop(); recording = false; document.getElementById('rec-indicator').style.display = 'none'; }
-}
+function stopRecording() { if (mediaRecorder && recording) { mediaRecorder.stop(); recording = false; document.getElementById('rec-indicator').style.display = 'none'; } }
 
 // ════════════════════════════════════════════════════════════════
 // SETTINGS WIRING
 // ════════════════════════════════════════════════════════════════
 
-function buildBasemapList() {
-    const container = document.getElementById('basemap-list');
-    container.innerHTML = BASEMAPS.map(bm => `<div class="basemap-row${bm.id === activeBasemap ? ' active' : ''}" data-style-id="${bm.id}">
-        <div class="basemap-radio"></div>
-        <span class="basemap-name">${bm.label}</span>
-    </div>`).join('');
-    container.querySelectorAll('.basemap-row').forEach(row => {
-        row.addEventListener('click', () => {
-            const id = row.dataset.styleId;
-            if (id === activeBasemap) return;
-            const bm = BASEMAPS.find(b => b.id === id);
-            if (!bm) return;
-            activeBasemap = id;
-            container.querySelectorAll('.basemap-row').forEach(r => r.classList.toggle('active', r.dataset.styleId === id));
-            map.setStyle(bm.style);
+// ════════════════════════════════════════════════════════════════
+// SCENE SNAPSHOTS
+// ════════════════════════════════════════════════════════════════
+
+const SCENE_STORAGE_KEY = 'planet-constellation-scenes';
+
+function captureScene() {
+    return {
+        ts: Date.now(),
+        simTimeMs, simSpeed, simPaused, cinemaMode,
+        cam: { pos: camera.position.toArray(), target: controls.target.toArray(), fov: camera.fov, damping: controls.dampingFactor },
+        settings: JSON.parse(JSON.stringify(settings)),
+        colors: Object.fromEntries(CONSTELLATION_ORDER.map(k => [k, CONSTELLATIONS[k].color]))
+    };
+}
+
+function restoreScene(snap) {
+    simTimeMs = snap.simTimeMs;
+    setSpeed(snap.simSpeed);
+    if (snap.simPaused !== simPaused) togglePause();
+    if (snap.cinemaMode !== cinemaMode) toggleCinema();
+
+    camera.position.fromArray(snap.cam.pos);
+    controls.target.fromArray(snap.cam.target);
+    camera.fov = snap.cam.fov;
+    camera.updateProjectionMatrix();
+    if (snap.cam.damping) controls.dampingFactor = snap.cam.damping;
+    controls.update();
+
+    Object.assign(settings, snap.settings);
+
+    satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity);
+    for (const k of CONSTELLATION_ORDER) {
+        trailMaterials[k].uniforms.uOpacity.value = 0.3 * settings.trailOpacity;
+        trailMaterials[k].linewidth = settings.trailWidth ?? 1.0;
+    }
+    if (stars) stars.material.uniforms.uIntensity.value = settings.starIntensity;
+    if (atmosphereMesh) atmosphereMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
+    if (outerGlowMesh) outerGlowMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
+    if (earthMesh) {
+        earthMesh.material.uniforms.uNightBrightness.value = settings.nightBrightness;
+        earthMesh.material.uniforms.uDayNight.value = settings.dayNightCycle ? 1.0 : 0.0;
+        if (earthMesh.material.uniforms.uDayBrightness) earthMesh.material.uniforms.uDayBrightness.value = settings.dayBrightness ?? 1.0;
+        if (earthMesh.material.uniforms.uDaySaturation) earthMesh.material.uniforms.uDaySaturation.value = settings.daySaturation ?? 1.0;
+        if (earthMesh.material.uniforms.uNightSaturation) earthMesh.material.uniforms.uNightSaturation.value = settings.nightSaturation ?? 1.0;
+    }
+
+    if (snap.colors) {
+        const _c = new THREE.Color();
+        for (const k of CONSTELLATION_ORDER) {
+            if (snap.colors[k]) {
+                CONSTELLATIONS[k].color = snap.colors[k];
+                _c.set(snap.colors[k]);
+                for (const sat of allSatellites) if (sat.constellation === k) sat._color = { r: _c.r, g: _c.g, b: _c.b };
+                if (trailMaterials[k]) trailMaterials[k].uniforms.uColor.value.set(snap.colors[k]);
+            }
+        }
+        buildColorPickers();
+    }
+
+    syncSettingsUI();
+    timelineCenter = simTimeMs;
+    updateTimelineTicks();
+    _lastTrailSimTime = 0;
+    _labelsDirty = true;
+}
+
+function syncSettingsUI() {
+    const setSlider = (id, valId, val, fmt) => {
+        const sl = document.getElementById(id), vl = document.getElementById(valId);
+        if (sl) { sl.value = val; if (vl) vl.textContent = fmt(val); }
+    };
+    setSlider('sl-dot-size', 'val-dot-size', settings.dotScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-glow', 'val-glow', settings.glowScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-alt', 'val-alt', settings.altScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-trail-len', 'val-trail-len', settings.trailLenScale, v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
+    setSlider('sl-trail-op', 'val-trail-op', settings.trailOpacity, v => v.toFixed(2)+'\u00d7');
+    setSlider('sl-trail-w', 'val-trail-w', settings.trailWidth, v => v.toFixed(1));
+    setSlider('sl-rotate', 'val-rotate', settings.rotateSpeed, v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
+    setSlider('sl-stars', 'val-stars', settings.starIntensity, v => v.toFixed(2));
+    setSlider('sl-atmo', 'val-atmo', settings.atmosphereScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-night', 'val-night', settings.nightBrightness, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-dot-op', 'val-dot-op', settings.dotOpacity, v => v.toFixed(2));
+    setSlider('sl-label-size', 'val-label-size', settings.labelScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-clock-sz', 'val-clock-sz', settings.clockScale, v => v.toFixed(1)+'\u00d7');
+    setSlider('sl-fov', 'val-fov', camera.fov, v => v.toFixed(0)+'\u00b0');
+    setSlider('sl-damp', 'val-damp', controls.dampingFactor, v => v.toFixed(2));
+    if (settings.dayBrightness != null) setSlider('sl-day-bright', 'val-day-bright', settings.dayBrightness, v => v.toFixed(2));
+    if (settings.daySaturation != null) setSlider('sl-day-sat', 'val-day-sat', settings.daySaturation, v => v.toFixed(2));
+    if (settings.nightSaturation != null) setSlider('sl-night-sat', 'val-night-sat', settings.nightSaturation, v => v.toFixed(2));
+
+    const btnLabels = document.getElementById('btn-labels');
+    if (btnLabels) { btnLabels.textContent = settings.showLabels ? 'ON' : 'OFF'; btnLabels.classList.toggle('on', settings.showLabels); }
+    const btnFL = document.getElementById('btn-flock-labels');
+    if (btnFL) { btnFL.textContent = settings.showFlockLabels ? 'ON' : 'OFF'; btnFL.classList.toggle('on', settings.showFlockLabels); }
+    const selAnchor = document.getElementById('sel-label-anchor');
+    if (selAnchor) selAnchor.value = settings.labelAnchor || 'right';
+    const clockTime = document.getElementById('tl-clock-time'), clockDate = document.getElementById('tl-clock-date');
+    if (clockTime) clockTime.style.fontSize = (22 * (settings.clockScale || 1)) + 'px';
+    if (clockDate) clockDate.style.fontSize = (9.5 * (settings.clockScale || 1)) + 'px';
+    const btnDN = document.getElementById('btn-daynight');
+    if (btnDN) { btnDN.textContent = settings.dayNightCycle ? 'ON' : 'OFF'; btnDN.classList.toggle('on', settings.dayNightCycle); }
+
+    syncVisToggles(); syncCards();
+}
+
+function loadSavedScenes() {
+    try { return JSON.parse(localStorage.getItem(SCENE_STORAGE_KEY)) || []; } catch { return []; }
+}
+
+function saveScenesArray(arr) {
+    localStorage.setItem(SCENE_STORAGE_KEY, JSON.stringify(arr));
+}
+
+function renderSceneSlots() {
+    const container = document.getElementById('scene-slots');
+    if (!container) return;
+    const scenes = loadSavedScenes();
+    if (scenes.length === 0) {
+        container.innerHTML = '<div style="color:rgba(255,255,255,0.2);font-size:8px;padding:2px 0">No saved scenes</div>';
+        return;
+    }
+    container.innerHTML = scenes.map((s, i) => {
+        const d = new Date(s.ts);
+        const label = s.label || `Slot ${i + 1} \u2014 ${d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}`;
+        return `<div class="scene-slot"><span class="slot-label">${label}</span><button class="slot-load" data-idx="${i}">Load</button><button class="slot-del" data-idx="${i}">\u2715</button></div>`;
+    }).join('');
+    container.querySelectorAll('.slot-load').forEach(b => b.addEventListener('click', () => {
+        const scenes = loadSavedScenes();
+        const snap = scenes[parseInt(b.dataset.idx)];
+        if (snap) restoreScene(snap);
+    }));
+    container.querySelectorAll('.slot-del').forEach(b => b.addEventListener('click', () => {
+        const scenes = loadSavedScenes();
+        scenes.splice(parseInt(b.dataset.idx), 1);
+        saveScenesArray(scenes);
+        renderSceneSlots();
+    }));
+}
+
+function saveSceneToSlot(slotIdx) {
+    const scenes = loadSavedScenes();
+    const snap = captureScene();
+    if (slotIdx != null && slotIdx < scenes.length) {
+        snap.label = scenes[slotIdx].label;
+        scenes[slotIdx] = snap;
+    } else {
+        snap.label = `Scene ${scenes.length + 1}`;
+        scenes.push(snap);
+    }
+    saveScenesArray(scenes);
+    renderSceneSlots();
+}
+
+function wireSceneUI() {
+    document.getElementById('btn-scene-save').addEventListener('click', () => saveSceneToSlot());
+    document.getElementById('btn-scene-copy').addEventListener('click', () => {
+        const json = JSON.stringify(captureScene(), null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            const btn = document.getElementById('btn-scene-copy');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy JSON', 1200);
         });
     });
+    renderSceneSlots();
 }
 
 function wireSettings() {
@@ -1182,73 +1413,128 @@ function wireSettings() {
 
     function bind(id, valId, prop, fmt, extra) {
         const sl = document.getElementById(id), vl = document.getElementById(valId);
-        sl.addEventListener('input', () => {
-            settings[prop] = parseFloat(sl.value);
-            vl.textContent = fmt(settings[prop]);
-            applySettings();
-            if (extra) extra();
-        });
+        sl.addEventListener('input', () => { settings[prop] = parseFloat(sl.value); vl.textContent = fmt(settings[prop]); if (extra) extra(); });
     }
 
-    bind('sl-dot-size', 'val-dot-size', 'dotScale', v => v.toFixed(1) + '\u00d7');
-    bind('sl-glow', 'val-glow', 'glowScale', v => v.toFixed(1) + '\u00d7');
-    bind('sl-alt', 'val-alt', 'altScale', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
-    bind('sl-trail-len', 'val-trail-len', 'trailLenScale', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
-    bind('sl-trail-w', 'val-trail-w', 'trailWidthScale', v => v.toFixed(1) + '\u00d7');
-    bind('sl-trail-op', 'val-trail-op', 'trailOpacity', v => v.toFixed(2) + '\u00d7');
-    bind('sl-rotate', 'val-rotate', 'rotateSpeed', v => v === 0 ? 'Off' : v.toFixed(1) + '\u00d7');
-    bind('sl-label-size', 'val-label-size', 'labelSize', v => String(Math.round(v)));
-    bind('sl-stars', 'val-stars', 'starIntensity', v => v.toFixed(2), applyFog);
-    bind('sl-haze', 'val-haze', 'horizonBlend', v => v.toFixed(3), applyFog);
-    bind('sl-space', 'val-space', 'spaceBrightness', v => v.toFixed(1) + '\u00d7', applyFog);
+    bind('sl-dot-size', 'val-dot-size', 'dotScale', v => v.toFixed(1)+'\u00d7', () => satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity));
+    bind('sl-glow', 'val-glow', 'glowScale', v => v.toFixed(1)+'\u00d7', () => satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity));
+    bind('sl-dot-op', 'val-dot-op', 'dotOpacity', v => v.toFixed(2), () => satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity));
+    bind('sl-alt', 'val-alt', 'altScale', v => v.toFixed(1)+'\u00d7');
+    bind('sl-trail-len', 'val-trail-len', 'trailLenScale', v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7', () => { _lastTrailSimTime = 0; });
+    bind('sl-trail-op', 'val-trail-op', 'trailOpacity', v => v.toFixed(2)+'\u00d7', () => {
+        for (const k of CONSTELLATION_ORDER) trailMaterials[k].uniforms.uOpacity.value = 0.3 * settings.trailOpacity;
+    });
+    bind('sl-trail-w', 'val-trail-w', 'trailWidth', v => v.toFixed(1), () => {
+        for (const k of CONSTELLATION_ORDER) trailMaterials[k].linewidth = settings.trailWidth;
+    });
+    bind('sl-rotate', 'val-rotate', 'rotateSpeed', v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
 
-    const labelBtn = document.getElementById('btn-labels');
-    labelBtn.addEventListener('click', () => {
+    const fovSl = document.getElementById('sl-fov'), fovVal = document.getElementById('val-fov');
+    fovSl.addEventListener('input', () => { camera.fov = parseFloat(fovSl.value); camera.updateProjectionMatrix(); fovVal.textContent = fovSl.value + '\u00b0'; });
+
+    const dampSl = document.getElementById('sl-damp'), dampVal = document.getElementById('val-damp');
+    dampSl.addEventListener('input', () => { controls.dampingFactor = parseFloat(dampSl.value); dampVal.textContent = parseFloat(dampSl.value).toFixed(2); });
+
+    document.querySelectorAll('.cam-preset').forEach(btn => btn.addEventListener('click', () => applyCamPreset(btn.dataset.preset)));
+
+    bind('sl-stars', 'val-stars', 'starIntensity', v => v.toFixed(2), () => { stars.material.uniforms.uIntensity.value = settings.starIntensity; });
+    bind('sl-atmo', 'val-atmo', 'atmosphereScale', v => v.toFixed(1)+'\u00d7', () => {
+        if (atmosphereMesh) atmosphereMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
+        if (outerGlowMesh) outerGlowMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
+    });
+    bind('sl-night', 'val-night', 'nightBrightness', v => v.toFixed(1)+'\u00d7', () => { if (earthMesh) earthMesh.material.uniforms.uNightBrightness.value = settings.nightBrightness; });
+    bind('sl-day-bright', 'val-day-bright', 'dayBrightness', v => v.toFixed(2), () => { if (earthMesh) earthMesh.material.uniforms.uDayBrightness.value = settings.dayBrightness; });
+    bind('sl-day-sat', 'val-day-sat', 'daySaturation', v => v.toFixed(2), () => { if (earthMesh) earthMesh.material.uniforms.uDaySaturation.value = settings.daySaturation; });
+    bind('sl-night-sat', 'val-night-sat', 'nightSaturation', v => v.toFixed(2), () => { if (earthMesh) earthMesh.material.uniforms.uNightSaturation.value = settings.nightSaturation; });
+
+    document.getElementById('btn-labels').addEventListener('click', () => {
         settings.showLabels = !settings.showLabels;
-        labelBtn.textContent = settings.showLabels ? 'ON' : 'OFF';
-        labelBtn.classList.toggle('on', settings.showLabels);
-        applySettings();
+        const btn = document.getElementById('btn-labels');
+        btn.textContent = settings.showLabels ? 'ON' : 'OFF';
+        btn.classList.toggle('on', settings.showLabels);
+        _labelsDirty = true;
     });
 
-    document.getElementById('btn-jump-epoch').addEventListener('click', () => {
-        if (tleEpoch) {
-            simTime = new Date(tleEpoch.getTime());
-            timelineCenter = simTime.getTime();
-            updateTimelineTicks();
-            _lastTrailSimTime = 0;
-        }
+    bind('sl-label-size', 'val-label-size', 'labelScale', v => v.toFixed(1)+'\u00d7', () => { scaleLabelSprites(); });
+
+    document.getElementById('btn-flock-labels').addEventListener('click', () => {
+        settings.showFlockLabels = !settings.showFlockLabels;
+        const btn = document.getElementById('btn-flock-labels');
+        btn.textContent = settings.showFlockLabels ? 'ON' : 'OFF';
+        btn.classList.toggle('on', settings.showFlockLabels);
+        _labelsDirty = true;
     });
-    document.getElementById('btn-jump-now').addEventListener('click', () => {
-        simTime = new Date();
-        timelineCenter = simTime.getTime();
-        updateTimelineTicks();
-        _lastTrailSimTime = 0;
+
+    document.getElementById('sel-label-anchor').addEventListener('change', (e) => {
+        settings.labelAnchor = e.target.value;
     });
+
+    bind('sl-clock-sz', 'val-clock-sz', 'clockScale', v => v.toFixed(1)+'\u00d7', () => {
+        const s = settings.clockScale;
+        document.getElementById('tl-clock-time').style.fontSize = (22 * s) + 'px';
+        document.getElementById('tl-clock-date').style.fontSize = (9.5 * s) + 'px';
+    });
+
+    document.getElementById('btn-daynight').addEventListener('click', () => {
+        settings.dayNightCycle = !settings.dayNightCycle;
+        const btn = document.getElementById('btn-daynight');
+        btn.textContent = settings.dayNightCycle ? 'ON' : 'OFF';
+        btn.classList.toggle('on', settings.dayNightCycle);
+        if (earthMesh) earthMesh.material.uniforms.uDayNight.value = settings.dayNightCycle ? 1.0 : 0.0;
+    });
+
+    document.getElementById('btn-jump-epoch').addEventListener('click', () => { if (tleEpoch) { simTimeMs = tleEpoch.getTime(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; } });
+    document.getElementById('btn-jump-now').addEventListener('click', () => { simTimeMs = Date.now(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; });
 }
 
 // ════════════════════════════════════════════════════════════════
-// PELICAN PULSE
+// TOOLTIP
 // ════════════════════════════════════════════════════════════════
 
-function pelicanPulse(ts) {
-    if (!settings.visibility.PELICAN) return;
-    const pulse = 1 + 0.2 * Math.sin(ts * 0.003);
-    try {
-        map.setPaintProperty('glow-PELICAN', 'circle-radius', CONSTELLATIONS.PELICAN.glowRadius * settings.dotScale * settings.glowScale * pulse);
-        map.setPaintProperty('halo-PELICAN', 'circle-radius', CONSTELLATIONS.PELICAN.haloRadius * settings.dotScale * settings.glowScale * (1 + 0.1 * Math.sin(ts * 0.002)));
-    } catch {}
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.02;
+const mouseVec = new THREE.Vector2(-999, -999);
+
+renderer.domElement.addEventListener('mousemove', e => {
+    mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+
+const _tooltipVec = new THREE.Vector3();
+let _lastVisibleSats = [];
+
+function updateTooltip() {
+    const tooltip = document.getElementById('sat-tooltip');
+    if (!satRenderer || mouseVec.x < -1.5) { tooltip.style.display = 'none'; return; }
+    raycaster.setFromCamera(mouseVec, camera);
+    const intersects = raycaster.intersectObject(satRenderer.mesh);
+    if (intersects.length > 0) {
+        const idx = intersects[0].index;
+        if (idx < _lastVisibleSats.length) {
+            const sat = _lastVisibleSats[idx];
+            const cfg = CONSTELLATIONS[sat.constellation];
+            tooltip.innerHTML = `<div style="font-weight:600;color:${cfg.color};margin-bottom:2px">${sat.shortName} <span style="font-size:8.5px;color:#919698;font-weight:400;margin-left:3px">${cfg.label} \u00B7 NORAD ${sat.id}</span></div><div style="color:#919698;font-size:10px">Alt: <span style="color:#fff">${Math.round(sat._lastPos.alt)} km</span> \u00A0 GSD: <span style="color:#fff">${cfg.gsd}</span> \u00A0 Swath: <span style="color:#fff">${cfg.swathKm} km</span></div>`;
+            tooltip.style.display = 'block';
+            _tooltipVec.copy(sat._vec3).project(camera);
+            tooltip.style.left = ((_tooltipVec.x + 1) / 2 * window.innerWidth + 14) + 'px';
+            tooltip.style.top = ((-_tooltipVec.y + 1) / 2 * window.innerHeight - 14) + 'px';
+            return;
+        }
+    }
+    tooltip.style.display = 'none';
 }
 
 // ════════════════════════════════════════════════════════════════
 // ANIMATION LOOP
 // ════════════════════════════════════════════════════════════════
 
-let lastFrame = 0, lastPosUpdate = 0, lastTrailUpdate = 0, lastUIUpdate = 0, lastPulse = 0;
+let lastFrame = 0, lastPosUpdate = 0, lastTrailUpdate = 0, lastUIUpdate = 0;
 
 function trailInterval() {
-    if (simSpeed <= 1) return 2000;
-    if (simSpeed <= 60) return 800;
-    return Math.max(120, Math.round(50000 / simSpeed));
+    if (simSpeed <= 1) return 1500;
+    if (simSpeed <= 60) return 400;
+    if (simSpeed <= 300) return 200;
+    return Math.max(80, Math.round(25000 / simSpeed));
 }
 
 function animate(ts) {
@@ -1256,21 +1542,37 @@ function animate(ts) {
     const dt = lastFrame ? Math.min(ts - lastFrame, 100) : 16;
     lastFrame = ts;
 
-    if (!simPaused && !isDraggingScrub) simTime = new Date(simTime.getTime() + dt * simSpeed);
+    if (!simPaused && !isDraggingScrub) simTimeMs += dt * simSpeed;
+
+    computeSunDirection(simTimeMs, sunDir);
+    if (earthMesh) earthMesh.material.uniforms.uSunDir.value.copy(sunDir);
+    if (atmosphereMesh) atmosphereMesh.material.uniforms.uSunDir.value.copy(sunDir);
+    if (outerGlowMesh) outerGlowMesh.material.uniforms.uSunDir.value.copy(sunDir);
+    if (satRenderer) satRenderer.updateSun(sunDir);
 
     const posInterval = simSpeed > 300 ? 50 : 80;
+    let visibleSats = null;
     if (ts - lastPosUpdate > posInterval) {
-        updateSatPositions();
+        visibleSats = updateSatPositions();
         lastPosUpdate = ts;
+        snapAllTrailEnds();
+        if (settings.showLabels) updateLabelPositions();
     }
-    if (ts - lastPulse > 200) { pelicanPulse(ts); lastPulse = ts; }
-    if (ts - lastTrailUpdate > trailInterval()) {
-        updateTrails();
-        lastTrailUpdate = ts;
-    }
-    if (ts - lastUIUpdate > 100) { updateTimelineUI(); lastUIUpdate = ts; }
+    if (_labelsDirty) rebuildLabels();
+    if (ts - lastTrailUpdate > trailInterval()) { updateTrailGeometry(); lastTrailUpdate = ts; }
+    if (ts - lastUIUpdate > 100) { updateTimelineUI(); updateTooltip(); lastUIUpdate = ts; }
 
-    autoRotateStep(dt);
+    if (cinemaMode && settings.rotateSpeed > 0) {
+        const angle = dt * 0.00008 * settings.rotateSpeed;
+        const pos = camera.position;
+        const x = pos.x * Math.cos(angle) - pos.z * Math.sin(angle);
+        const z = pos.x * Math.sin(angle) + pos.z * Math.cos(angle);
+        camera.position.set(x, pos.y, z);
+        camera.lookAt(0, 0, 0);
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1279,71 +1581,86 @@ function animate(ts) {
 
 document.getElementById('tl-play').addEventListener('click', togglePause);
 document.querySelectorAll('.tl-speed').forEach(btn => btn.addEventListener('click', () => setSpeed(parseInt(btn.dataset.speed))));
-document.getElementById('tl-custom').addEventListener('change', (e) => { const v = parseInt(e.target.value); if (v >= 1) setSpeed(v); });
-document.getElementById('tl-custom').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); } e.stopPropagation(); });
+document.getElementById('tl-custom').addEventListener('change', e => { const v = parseInt(e.target.value); if (v >= 1) setSpeed(v); });
+document.getElementById('tl-custom').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); e.stopPropagation(); });
 document.getElementById('btn-cinema').addEventListener('click', toggleCinema);
 document.getElementById('btn-rec').addEventListener('click', toggleRecording);
 
 document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
+
+    const digit = parseInt(e.key);
+    if (digit >= 1 && digit <= 9) {
+        if (e.ctrlKey && e.shiftKey) { e.preventDefault(); saveSceneToSlot(digit - 1); return; }
+        if (e.shiftKey) {
+            e.preventDefault();
+            const scenes = loadSavedScenes();
+            if (scenes[digit - 1]) restoreScene(scenes[digit - 1]);
+            return;
+        }
+        const presetKeys = { 1: 'hero', 2: 'top', 3: 'close', 4: 'wide', 5: 'cinematic' };
+        if (presetKeys[digit]) applyCamPreset(presetKeys[digit]);
+        return;
+    }
+
     if (e.key === 'c' || e.key === 'C') toggleCinema();
     if (e.key === ' ') { e.preventDefault(); togglePause(); }
     if (e.key === 'r' || e.key === 'R') toggleRecording();
     if (e.key === 's' || e.key === 'S') { document.getElementById('settings-panel').classList.toggle('open'); document.getElementById('settings-toggle').classList.toggle('open'); }
-    if (e.key === 'l' || e.key === 'L') { document.getElementById('btn-labels').click(); }
-    if (e.key === 'b' || e.key === 'B') {
-        const idx = BASEMAPS.findIndex(b => b.id === activeBasemap);
-        const next = BASEMAPS[(idx + 1) % BASEMAPS.length];
-        activeBasemap = next.id;
-        document.querySelectorAll('.basemap-row').forEach(r => r.classList.toggle('active', r.dataset.styleId === next.id));
-        map.setStyle(next.style);
-    }
+    if (e.key === 'l' || e.key === 'L') document.getElementById('btn-labels').click();
     if (e.key === 'ArrowUp') setSpeed(Math.min(simSpeed <= 10 ? simSpeed + 1 : Math.round(simSpeed * 1.5), 7200));
     if (e.key === 'ArrowDown') setSpeed(Math.max(simSpeed <= 10 ? simSpeed - 1 : Math.round(simSpeed / 1.5), 1));
-    if (e.key === 'ArrowLeft') { simTime = new Date(simTime.getTime() - 600000); }
-    if (e.key === 'ArrowRight') { simTime = new Date(simTime.getTime() + 600000); }
+    if (e.key === 'ArrowLeft') { simTimeMs -= 600000; _lastTrailSimTime = 0; }
+    if (e.key === 'ArrowRight') { simTimeMs += 600000; _lastTrailSimTime = 0; }
+    if (e.key === 'h' || e.key === 'H') document.getElementById('timeline').style.display = document.getElementById('timeline').style.display === 'none' ? '' : 'none';
+    if (e.key === 'f' || e.key === 'F') { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
 });
 
-map.on('mousedown', () => { autoRotateBearing = map.getBearing(); });
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
 // ════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════
 
-map.on('load', async () => {
+async function init() {
     try {
-        setLoadStatus('Fetching Planet ephemeris data...');
+        setLoadStatus('Loading Earth textures...');
+        await createEarth();
+
+        setLoadStatus('Fetching orbital data...');
         await loadTLEs();
         setLoadStatus(`${allSatellites.length} satellites loaded...`);
 
-        timelineCenter = simTime.getTime();
-
-        initMapLayers();
+        timelineCenter = simTimeMs;
+        satRenderer = createSatRenderer(allSatellites.length + 50);
+        initTrails();
         initTimeline();
         buildCards();
         buildVisToggles();
         buildColorPickers();
-        buildBasemapList();
         wireSettings();
+        wireSceneUI();
         updateDataSource();
         updateEpochInfo();
-        initTooltips();
         setSpeed(60);
-        applyFog();
 
         updateSatPositions();
-        updateTrails();
+        updateTrailGeometry();
         updateTimelineUI();
-        applySettings();
 
-        mapReady = true;
         document.getElementById('loading').classList.add('hidden');
         requestAnimationFrame(animate);
     } catch (err) {
         setLoadStatus(`Error: ${err.message}`);
         console.error('Init failed:', err);
     }
-});
+}
+
+init();
 </script>
 </body>
 </html>
