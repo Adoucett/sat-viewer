@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planet Constellation Viewer</title>
-    <link rel="icon" href="data:,">
+    <title>Planet Constellation Viewer v2</title>
 
     <script type="importmap">
     {
@@ -185,15 +184,9 @@
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Ground Tracks</div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Mode</span><select id="sel-trail-mode" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"><option value="orbit">Orbit Arcs</option><option value="coverageWrap">Coverage Wrap</option></select></div></div>
         <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Length</span><span class="slider-value" id="val-trail-len">1.0&times;</span></div><input type="range" id="sl-trail-len" min="0" max="5" step="0.1" value="1.0"></div>
         <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Opacity</span><span class="slider-value" id="val-trail-op">1.0&times;</span></div><input type="range" id="sl-trail-op" min="0" max="2" step="0.05" value="1.0"></div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Boldness</span><span class="slider-value" id="val-trail-w">1.0&times;</span></div><input type="range" id="sl-trail-w" min="0.3" max="3" step="0.1" value="1.0"></div>
-        <div id="coverage-controls" style="display:none">
-            <div class="slider-row"><div class="slider-header"><span class="slider-label">Coverage Window</span><span class="slider-value" id="val-cov-hours">6h</span></div><input type="range" id="sl-cov-hours" min="1" max="12" step="0.5" value="6"></div>
-            <div class="slider-row"><div class="slider-header"><span class="slider-label">Coverage Persistence</span><span class="slider-value" id="val-cov-persist">0.18</span></div><input type="range" id="sl-cov-persist" min="0" max="0.6" step="0.02" value="0.18"></div>
-            <button class="settings-btn" id="btn-cov-reseed" style="margin-top:4px">Rebuild Coverage</button>
-        </div>
+        <div class="slider-row"><div class="slider-header"><span class="slider-label">Trail Width</span><span class="slider-value" id="val-trail-w">1.0</span></div><input type="range" id="sl-trail-w" min="0.5" max="5" step="0.25" value="1.0"></div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Atmosphere &amp; Lighting</div>
@@ -208,7 +201,6 @@
     <div class="settings-section">
         <div class="settings-section-title">Display</div>
         <div class="slider-row"><div class="slider-header"><span class="slider-label">Clock Font Size</span><span class="slider-value" id="val-clock-sz">1.0&times;</span></div><input type="range" id="sl-clock-sz" min="0.5" max="3.0" step="0.1" value="1.0"></div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Earth Texture</span><select id="sel-texture" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"><option value="standard">Standard 8K</option><option value="high">Capture 16K</option></select></div></div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Camera</div>
@@ -225,23 +217,6 @@
                 <button class="settings-btn cam-preset" data-preset="cinematic" style="flex:1;min-width:60px">Cine</button>
             </div>
         </div>
-    </div>
-    <div class="settings-section">
-        <div class="settings-section-title">Hands-Off Camera</div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Path</span><select id="sel-cam-path" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"><option value="orbit">Slow Orbit</option><option value="pushIn">Push In</option><option value="pullBack">Pull Back</option><option value="flyBetween">Fly A &rarr; B</option><option value="coverageLoop">Coverage Loop</option></select></div></div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Duration (s)</span><input type="number" id="cam-dur" min="3" max="600" value="45" style="width:54px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"></div></div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Easing</span><select id="sel-cam-ease" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;padding:2px 4px;font-family:inherit"><option value="cinematic">Cinematic</option><option value="smooth">Smooth</option><option value="easeInOut">Ease In/Out</option><option value="hold">Hold &amp; Drift</option><option value="linear">Linear</option></select></div></div>
-        <div class="slider-row"><div class="slider-header"><span class="slider-label">Loop</span><button class="mini-toggle" id="btn-cam-loop">OFF</button></div></div>
-        <div style="display:flex;gap:3px;margin-top:4px">
-            <button class="settings-btn" id="btn-cam-a" style="flex:1">Set A</button>
-            <button class="settings-btn" id="btn-cam-b" style="flex:1">Set B</button>
-            <button class="settings-btn" id="btn-cam-play" style="flex:1">Play</button>
-        </div>
-        <div class="epoch-info" id="cam-path-status" style="margin-top:5px">Idle</div>
-    </div>
-    <div class="settings-section">
-        <div class="settings-section-title">Presentations</div>
-        <div id="preset-btns" style="display:flex;flex-direction:column;gap:3px"></div>
     </div>
     <div class="settings-section">
         <div class="settings-section-title">Scenes <span style="font-size:7.5px;color:rgba(255,255,255,0.2);font-weight:400">&nbsp;Shift+1-9 recall &middot; Ctrl+Shift+1-9 save</span></div>
@@ -289,7 +264,6 @@
             <div class="tl-clock-time" id="tl-clock-time">--:--:-- UTC</div>
             <div class="tl-clock-date" id="tl-clock-date">--- --- ----</div>
             <div class="tl-source" id="tl-source"></div>
-            <div class="tl-source" id="tl-freshness"></div>
         </div>
     </div>
 </div>
@@ -316,24 +290,6 @@ const EARTH_RADIUS = 1;
 const KM_SCALE = 1 / 6371;
 const DEG = Math.PI / 180;
 const TRAIL_SAMPLES = 40;
-const TRAIL_BASE_OPACITY = 0.3;
-const URL_PARAMS = new URLSearchParams(window.location.search);
-
-const TEXTURE_PRESETS = {
-    standard: {
-        label: 'Standard 8K',
-        day: 'WorldView/day_earth_8k.jpg',
-        night: 'WorldView/night_earth_4k.jpg'
-    },
-    high: {
-        label: 'Capture 16K May 2025',
-        day: 'WorldView/day_earth_16k_may2025.jpg',
-        night: 'WorldView/night_earth_4k.jpg',
-        fallback: 'standard'
-    }
-};
-const REQUESTED_TEXTURE_PRESET = URL_PARAMS.get('texture') || 'high';
-const ACTIVE_TEXTURE_PRESET = TEXTURE_PRESETS[REQUESTED_TEXTURE_PRESET] ? REQUESTED_TEXTURE_PRESET : 'high';
 
 const CONSTELLATIONS = {
     PELICAN: { label: 'Pelican', altKm: 440, gsd: '30 cm', swathKm: 32, color: '#e8ecff', dotRadius: 3.2, trailMinutes: 14, showTrailAtZoom: 0 },
@@ -373,7 +329,6 @@ let timelineSpanHours = 24;
 const settings = {
     dotScale: 1.0, glowScale: 0.5, dotOpacity: 1.0, altScale: 1.0,
     trailLenScale: 1.0, trailOpacity: 1.0, trailWidth: 1.0,
-    trailMode: 'orbit', coverageHours: 6, coverageSampleSec: 45, coveragePersistence: 0.18,
     rotateSpeed: 1.0,
     showLabels: false, showFlockLabels: false, labelScale: 1.0, labelAnchor: 'right',
     dayNightCycle: true,
@@ -389,8 +344,7 @@ const settings = {
 
 function classifySat(name) {
     const u = name.toUpperCase();
-    // EDDA is a Pelican-program pathfinder; group it with Pelican but keep its own label.
-    if (u.includes('PELICAN') || u.includes('EDDA')) return 'PELICAN';
+    if (u.includes('PELICAN')) return 'PELICAN';
     if (u.includes('SKYSAT')) return 'SKYSAT';
     if (u.includes('TANAGER')) return 'TANAGER';
     return 'FLOCK';
@@ -399,10 +353,7 @@ function classifySat(name) {
 function shortName(name, c, noradId) {
     if (SAT_NAME_LOOKUP[noradId]) return SAT_NAME_LOOKUP[noradId];
     const n = name.trim();
-    if (c === 'PELICAN') {
-        if (/EDDA/i.test(n)) { const em = n.match(/EDDA[- ]?(\d+)/i); return em ? `EDDA-${em[1]}` : 'EDDA'; }
-        const m = n.match(/PELICAN[- ]?(\d+)/i); return m ? `Pelican-${m[1]}` : 'Pelican';
-    }
+    if (c === 'PELICAN') { const m = n.match(/PELICAN[- ]?(\d)/i); return m ? `Pelican-${m[1]}` : 'Pelican'; }
     if (c === 'SKYSAT') { const m = n.match(/SKYSAT[-\s]*([A-C]?\d+)/i); return m ? `SkySat-${m[1]}` : 'SkySat'; }
     if (c === 'TANAGER') { const m = n.match(/TANAGER[- ]?(\d+)/i); return m ? `Tanager-${m[1]}` : 'Tanager'; }
     const fm = n.match(/FLOCK\s+(\w+)[- ](\d+)/i);
@@ -620,17 +571,6 @@ const textureLoader = new THREE.TextureLoader();
 let earthMesh, atmosphereMesh, outerGlowMesh;
 const sunDir = new THREE.Vector3(1, 0, 0);
 
-async function loadTextureWithFallback(url, fallbackUrl, label) {
-    try {
-        return await textureLoader.loadAsync(url);
-    } catch (err) {
-        if (!fallbackUrl || fallbackUrl === url) throw err;
-        console.warn(`[Texture] ${label} failed (${url}); falling back to ${fallbackUrl}`, err);
-        setLoadStatus(`High-res ${label} unavailable, using fallback...`);
-        return textureLoader.loadAsync(fallbackUrl);
-    }
-}
-
 const earthVertShader = `
 varying vec2 vUv;
 varying vec3 vNormal;
@@ -710,23 +650,16 @@ void main() {
 }`;
 
 async function createEarth() {
-    let preset = TEXTURE_PRESETS[ACTIVE_TEXTURE_PRESET];
-    if (ACTIVE_TEXTURE_PRESET === 'high' && renderer.capabilities.maxTextureSize < 16384) {
-        console.warn(`[Texture] GPU max texture size ${renderer.capabilities.maxTextureSize}; using standard texture.`);
-        preset = TEXTURE_PRESETS.standard;
-    }
-    const fallback = preset.fallback ? TEXTURE_PRESETS[preset.fallback] : preset;
-    setLoadStatus(`Loading Earth textures (${preset.label})...`);
     const [dayTex, nightTex] = await Promise.all([
-        loadTextureWithFallback(preset.day, fallback.day, 'day texture'),
-        loadTextureWithFallback(preset.night, fallback.night, 'night texture')
+        textureLoader.loadAsync('WorldView/day_earth_8k.jpg'),
+        textureLoader.loadAsync('WorldView/night_earth_4k.jpg')
     ]);
     dayTex.colorSpace = THREE.SRGBColorSpace;
     nightTex.colorSpace = THREE.SRGBColorSpace;
     dayTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     nightTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, preset === TEXTURE_PRESETS.high ? 256 : 128, preset === TEXTURE_PRESETS.high ? 128 : 64);
+    const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 128, 64);
     const earthMat = new THREE.ShaderMaterial({
         uniforms: {
             uDayMap: { value: dayTex },
@@ -906,36 +839,14 @@ const trailMaterials = {};
 const MAX_TRAIL_PTS = TRAIL_SAMPLES + 2;
 const _trailDate = new Date();
 
-// Trail Boldness folds into additive opacity (native THREE.Line width is ignored by most WebGL drivers).
-function trailOpacityValue() { return TRAIL_BASE_OPACITY * settings.trailOpacity * settings.trailWidth; }
-
-// Keep every trail/coverage material's camera-position uniform fresh each frame so backface fade tracks orbit.
-function updateTrailCamUniforms() {
-    for (const key of CONSTELLATION_ORDER) {
-        if (trailMaterials[key]) trailMaterials[key].uniforms.uCamPos.value.copy(camera.position);
-        if (coverageMaterials[key]) coverageMaterials[key].uniforms.uCamPos.value.copy(camera.position);
-    }
-}
-
-function refreshTrailMaterialUniforms() {
-    const op = trailOpacityValue();
-    for (const key of CONSTELLATION_ORDER) {
-        if (trailMaterials[key]) trailMaterials[key].uniforms.uOpacity.value = op;
-        if (coverageMaterials[key]) {
-            coverageMaterials[key].uniforms.uOpacity.value = op;
-            coverageMaterials[key].uniforms.uFloor.value = settings.coveragePersistence;
-        }
-    }
-}
-
 function initTrails() {
     for (const key of CONSTELLATION_ORDER) {
         const c = new THREE.Color(CONSTELLATIONS[key].color);
         trailMaterials[key] = new THREE.ShaderMaterial({
             uniforms: {
                 uColor: { value: c },
-                uOpacity: { value: trailOpacityValue() },
-                uCamPos: { value: new THREE.Vector3().copy(camera.position) }
+                uOpacity: { value: 0.18 * settings.trailOpacity },
+                uCamPos: { value: camera.position }
             },
             vertexShader: `
                 varying vec3 vWorldPos;
@@ -978,26 +889,17 @@ function initTrails() {
 let _lastTrailSimTime = 0;
 
 function updateTrailGeometry() {
-    const coverageMode = settings.trailMode === 'coverageWrap';
     const nowMs = simTimeMs;
-    if (!coverageMode && simPaused && Math.abs(nowMs - _lastTrailSimTime) < 500) return;
+    if (simPaused && Math.abs(nowMs - _lastTrailSimTime) < 500) return;
     _lastTrailSimTime = nowMs;
 
     for (const sat of allSatellites) {
         const key = sat.constellation;
-        if (coverageMode) {
-            sat._trailGeo.setDrawRange(0, 0);
-            if (sat._trailLine) sat._trailLine.visible = false;
-            sat._trailCount = 0;
-            continue;
-        }
         if (!settings.visibility[key] || settings.trailLenScale <= 0) {
             sat._trailGeo.setDrawRange(0, 0);
-            if (sat._trailLine) sat._trailLine.visible = false;
             sat._trailCount = 0;
             continue;
         }
-        if (sat._trailLine) sat._trailLine.visible = true;
         const cfg = CONSTELLATIONS[key];
         const dur = cfg.trailMinutes * 60000 * settings.trailLenScale;
         const highSpeed = simSpeed > 200;
@@ -1050,180 +952,6 @@ function snapAllTrailEnds() {
         if (!sat._trailCount || !settings.visibility[sat.constellation]) continue;
         snapTrailEnd(sat);
     }
-}
-
-// ════════════════════════════════════════════════════════════════
-// COVERAGE WRAP MODE (persistent ground tracks)
-// ════════════════════════════════════════════════════════════════
-// A non-default presentation mode: project each satellite's recent path onto
-// the surface and keep it for a long window so coverage visibly wraps the globe,
-// echoing Planet's classic "coverage wrap" video but driven by real TLEs.
-
-const coverageMaterials = {};
-const COV_CAP = { PELICAN: 1400, SKYSAT: 1400, TANAGER: 1400, FLOCK: 1100 };
-let coverageInited = false;
-let _lastCovSampleSim = 0;
-const _covVec = new THREE.Vector3();
-
-function groundVec(lat, lng, out) {
-    const r = EARTH_RADIUS * 1.0015; // sit just above the surface to avoid z-fighting
-    const a = lat * DEG, b = lng * DEG;
-    out.set(r * Math.cos(a) * Math.cos(b), r * Math.sin(a), -r * Math.cos(a) * Math.sin(b));
-    return out;
-}
-
-function initCoverage() {
-    if (coverageInited) return;
-    for (const key of CONSTELLATION_ORDER) {
-        const c = new THREE.Color(CONSTELLATIONS[key].color);
-        coverageMaterials[key] = new THREE.ShaderMaterial({
-            uniforms: {
-                uColor: { value: c },
-                uOpacity: { value: trailOpacityValue() },
-                uCamPos: { value: new THREE.Vector3().copy(camera.position) },
-                uFloor: { value: settings.coveragePersistence }
-            },
-            vertexShader: `
-                attribute float aAge;
-                varying float vAge;
-                varying vec3 vWorldPos;
-                void main() {
-                    vAge = aAge;
-                    vec4 wp = modelMatrix * vec4(position, 1.0);
-                    vWorldPos = wp.xyz;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }`,
-            fragmentShader: `
-                uniform vec3 uColor;
-                uniform float uOpacity;
-                uniform vec3 uCamPos;
-                uniform float uFloor;
-                varying float vAge;
-                varying vec3 vWorldPos;
-                void main() {
-                    vec3 toPoint = normalize(vWorldPos);
-                    vec3 toCam = normalize(uCamPos);
-                    float facing = dot(toPoint, toCam);
-                    float fade = smoothstep(-0.25, 0.25, facing);
-                    float ageFade = mix(1.0, uFloor, clamp(vAge, 0.0, 1.0));
-                    gl_FragColor = vec4(uColor, uOpacity * fade * ageFade);
-                }`,
-            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-        });
-    }
-    for (const sat of allSatellites) {
-        const cap = COV_CAP[sat.constellation] || 1200;
-        sat._cov = { lat: new Float32Array(cap), lng: new Float32Array(cap), t: new Float64Array(cap), brk: new Uint8Array(cap), head: 0, count: 0, cap };
-        const segVerts = (cap - 1) * 2;
-        const pos = new Float32Array(segVerts * 3);
-        const age = new Float32Array(segVerts);
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        geo.setAttribute('aAge', new THREE.BufferAttribute(age, 1));
-        geo.setDrawRange(0, 0);
-        const line = new THREE.LineSegments(geo, coverageMaterials[sat.constellation]);
-        line.frustumCulled = false;
-        line.visible = false;
-        scene.add(line);
-        sat._covGeo = geo; sat._covPos = pos; sat._covAge = age; sat._covLine = line;
-    }
-    coverageInited = true;
-}
-
-function resetCoverage() {
-    if (!coverageInited) return;
-    for (const sat of allSatellites) { if (sat._cov) { sat._cov.head = 0; sat._cov.count = 0; } }
-    _lastCovSampleSim = simTimeMs;
-}
-
-function covPush(cov, lat, lng, tMs) {
-    let brk = 0;
-    if (cov.count > 0) {
-        const prev = (cov.head - 1 + cov.cap) % cov.cap;
-        if (Math.abs(lng - cov.lng[prev]) > 180) brk = 1;
-        if (Math.abs(lat - cov.lat[prev]) > 40) brk = 1;
-    }
-    cov.lat[cov.head] = lat; cov.lng[cov.head] = lng; cov.t[cov.head] = tMs; cov.brk[cov.head] = brk;
-    cov.head = (cov.head + 1) % cov.cap;
-    if (cov.count < cov.cap) cov.count++;
-}
-
-// Backfill the ring buffer so switching to coverage instantly shows accumulated tracks.
-function seedCoverage() {
-    if (!coverageInited) return;
-    const windowMs = settings.coverageHours * 3600000;
-    const step = Math.max(15, settings.coverageSampleSec) * 1000;
-    const start = simTimeMs - windowMs;
-    for (const sat of allSatellites) { sat._cov.head = 0; sat._cov.count = 0; }
-    const d = new Date();
-    for (let tt = start; tt <= simTimeMs; tt += step) {
-        d.setTime(tt);
-        for (const sat of allSatellites) {
-            const p = getSatPos(sat.satrec, d);
-            if (p) covPush(sat._cov, p.lat, p.lng, tt);
-        }
-    }
-    _lastCovSampleSim = simTimeMs;
-}
-
-function sampleCoverage() {
-    for (const sat of allSatellites) {
-        const cov = sat._cov; if (!cov) continue;
-        const p = sat._lastPos; if (!p) continue;
-        covPush(cov, p.lat, p.lng, simTimeMs);
-    }
-}
-
-function updateCoverageGeometry() {
-    if (!coverageInited) return;
-    const coverageMode = settings.trailMode === 'coverageWrap';
-    const windowMs = settings.coverageHours * 3600000;
-    const nowMs = simTimeMs;
-    for (const sat of allSatellites) {
-        const cov = sat._cov, line = sat._covLine;
-        if (!cov || !line) continue;
-        if (!coverageMode || !settings.visibility[sat.constellation]) { line.visible = false; continue; }
-        line.visible = true;
-        const pos = sat._covPos, age = sat._covAge;
-        let v = 0;
-        let prevX, prevY, prevZ, prevAgeN = 0, prevValid = false;
-        for (let k = 0; k < cov.count; k++) {
-            const idx = (cov.head - cov.count + k + cov.cap * 2) % cov.cap;
-            const ageMs = nowMs - cov.t[idx];
-            if (ageMs < 0 || ageMs > windowMs) { prevValid = false; continue; }
-            const ageN = ageMs / windowMs;
-            groundVec(cov.lat[idx], cov.lng[idx], _covVec);
-            const x = _covVec.x, y = _covVec.y, z = _covVec.z;
-            if (prevValid && !cov.brk[idx]) {
-                const dx = x - prevX, dy = y - prevY, dz = z - prevZ;
-                if (dx * dx + dy * dy + dz * dz < 0.36) { // skip cross-globe jumps (>0.6 chord)
-                    const o = v * 3;
-                    pos[o] = prevX; pos[o + 1] = prevY; pos[o + 2] = prevZ;
-                    pos[o + 3] = x; pos[o + 4] = y; pos[o + 5] = z;
-                    age[v] = prevAgeN; age[v + 1] = ageN;
-                    v += 2;
-                }
-            }
-            prevX = x; prevY = y; prevZ = z; prevAgeN = ageN; prevValid = true;
-        }
-        sat._covGeo.setDrawRange(0, v);
-        sat._covGeo.attributes.position.needsUpdate = true;
-        sat._covGeo.attributes.aAge.needsUpdate = true;
-    }
-}
-
-// Activate/deactivate coverage mode safely (lazy init + seed for instant visual).
-function setTrailMode(mode) {
-    settings.trailMode = mode;
-    if (mode === 'coverageWrap') {
-        initCoverage();
-        refreshTrailMaterialUniforms();
-        seedCoverage();
-        updateCoverageGeometry();
-    } else if (coverageInited) {
-        for (const sat of allSatellites) if (sat._covLine) sat._covLine.visible = false;
-    }
-    _lastTrailSimTime = 0;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1422,7 +1150,7 @@ function buildCards() {
     const container = document.getElementById('cards');
     const counts = {};
     allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
-    let html = `<div id="sat-header"><span class="total-count">${allSatellites.length}</span><span class="total-label">Public TLE Entries</span></div>`;
+    let html = `<div id="sat-header"><span class="total-count">${allSatellites.length}</span><span class="total-label">Active Satellites</span></div>`;
     html += CONSTELLATION_ORDER.map(key => {
         const cfg = CONSTELLATIONS[key];
         return `<div class="card${settings.visibility[key] ? '' : ' off'}" data-const="${key}"><div class="card-header"><div class="card-dot" style="color:${cfg.color};background:${cfg.color}"></div><span class="card-name">${cfg.label}</span><span class="card-count">${counts[key]||0}</span></div><div class="card-meta"><span><span class="v">${cfg.altKm} km</span> alt</span><span><span class="v">${cfg.gsd}</span> GSD</span><span><span class="v">${cfg.swathKm} km</span> swath</span></div></div>`;
@@ -1473,20 +1201,9 @@ function syncCards() { document.querySelectorAll('#cards .card').forEach(c => c.
 function updateDataSource() {
     const el = document.getElementById('tl-source');
     if (!tleSource) return;
-    el.textContent = `${tleSource} \u00B7 ${allSatellites.length} public TLE entries`;
-    updateFreshness();
-}
-
-function updateFreshness() {
-    const el = document.getElementById('tl-freshness');
-    if (!el) return;
-    if (!tleEpoch) { el.textContent = ''; return; }
-    const ageH = (Date.now() - tleEpoch.getTime()) / 3600000;
-    let color = '#2fbf71', word = 'FRESH';
-    if (ageH >= 72) { color = '#d9534f'; word = 'STALE'; }
-    else if (ageH >= 24) { color = '#e0a800'; word = 'AGING'; }
-    const ageStr = ageH < 1 ? '<1h' : (ageH < 48 ? Math.round(ageH) + 'h' : Math.round(ageH / 24) + 'd');
-    el.innerHTML = `<span style="color:${color}">\u25CF</span> TLE ${word} \u00B7 ${ageStr} old`;
+    const counts = {};
+    allSatellites.forEach(s => counts[s.constellation] = (counts[s.constellation] || 0) + 1);
+    el.textContent = `${tleSource} \u00B7 ${allSatellites.length} sats`;
 }
 
 function updateEpochInfo() {
@@ -1496,72 +1213,6 @@ function updateEpochInfo() {
     const h = String(tleEpoch.getUTCHours()).padStart(2,'0'), m = String(tleEpoch.getUTCMinutes()).padStart(2,'0');
     const ageH = Math.floor((Date.now() - tleEpoch.getTime()) / 3600000);
     el.innerHTML = `Epoch: ${tleEpoch.getUTCDate()} ${months[tleEpoch.getUTCMonth()]} ${tleEpoch.getUTCFullYear()} ${h}:${m} UTC<br>Age: ${ageH < 1 ? '<1' : ageH} hr`;
-}
-
-// ════════════════════════════════════════════════════════════════
-// PRESENTATION PRESETS + URL LAUNCH
-// ════════════════════════════════════════════════════════════════
-
-const PRESENTATION_PRESETS = {
-    'Executive Overview': { cam: 'hero', settings: { trailMode: 'orbit', trailLenScale: 1.2, showLabels: false }, speed: 120, vis: { PELICAN: true, SKYSAT: true, TANAGER: true, FLOCK: true } },
-    'Coverage Wrap':      { cam: 'wide', settings: { trailMode: 'coverageWrap', coverageHours: 6, coveragePersistence: 0.22 }, speed: 1200, path: { mode: 'coverageLoop', dur: 60, loop: true } },
-    'Pelican + SkySat':   { cam: 'hero', settings: { trailMode: 'orbit', showLabels: true, showFlockLabels: false }, speed: 120, vis: { PELICAN: true, SKYSAT: true, TANAGER: false, FLOCK: false } },
-    'PlanetScope Daily':  { cam: 'top',  settings: { trailMode: 'coverageWrap', coverageHours: 3, coveragePersistence: 0.15 }, speed: 1800, vis: { PELICAN: false, SKYSAT: false, TANAGER: false, FLOCK: true }, path: { mode: 'orbit', dur: 60, loop: true } },
-    'Booth Loop':         { cam: 'hero', settings: { trailMode: 'coverageWrap', coverageHours: 6, coveragePersistence: 0.20 }, speed: 900, cinema: true, path: { mode: 'coverageLoop', dur: 75, loop: true } }
-};
-
-function applyPresentationPreset(name) {
-    const p = PRESENTATION_PRESETS[name];
-    if (!p) return;
-    if (p.vis) { for (const k of CONSTELLATION_ORDER) if (p.vis[k] != null) settings.visibility[k] = p.vis[k]; }
-    if (p.settings) Object.assign(settings, p.settings);
-    if (p.speed) setSpeed(p.speed);
-    satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity);
-    refreshTrailMaterialUniforms();
-    setTrailMode(settings.trailMode || 'orbit');
-    if (p.cam) applyCamPreset(p.cam);
-    if (p.cinema && !cinemaMode) toggleCinema();
-    buildCards(); buildVisToggles();
-    syncSettingsUI();
-    if (p.path) startCameraPath({ mode: p.path.mode, dur: (p.path.dur || 45) * 1000, loop: !!p.path.loop, easing: 'cinematic' });
-}
-
-function buildPresetButtons() {
-    const c = document.getElementById('preset-btns');
-    if (!c) return;
-    c.innerHTML = Object.keys(PRESENTATION_PRESETS).map(n => `<button class="settings-btn preset-btn" data-preset-name="${n}" style="text-align:left">${n}</button>`).join('');
-    c.querySelectorAll('.preset-btn').forEach(b => b.addEventListener('click', () => applyPresentationPreset(b.dataset.presetName)));
-}
-
-function swapTexture(modeKey) {
-    let preset = TEXTURE_PRESETS[modeKey];
-    if (!preset || !earthMesh) return;
-    if (modeKey === 'high' && renderer.capabilities.maxTextureSize < 16384) preset = TEXTURE_PRESETS.standard;
-    const fallback = preset.fallback ? TEXTURE_PRESETS[preset.fallback] : preset;
-    loadTextureWithFallback(preset.day, fallback.day, 'day texture').then(tex => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-        const old = earthMesh.material.uniforms.uDayMap.value;
-        earthMesh.material.uniforms.uDayMap.value = tex;
-        if (old && old.dispose) old.dispose();
-    }).catch(e => console.warn('[Texture] swap failed', e));
-}
-
-function applyUrlParams() {
-    const p = URL_PARAMS;
-    if (p.has('labels')) settings.showLabels = (p.get('labels') === '1' || p.get('labels') === 'true');
-    if (p.has('speed')) { const s = parseInt(p.get('speed'), 10); if (s >= 1) setSpeed(s); }
-    if (p.has('mode')) { const m = p.get('mode'); if (m === 'coverage' || m === 'coverageWrap') setTrailMode('coverageWrap'); }
-    if (p.has('preset')) { const name = decodeURIComponent(p.get('preset')); if (PRESENTATION_PRESETS[name]) applyPresentationPreset(name); }
-    if ((p.get('cinema') === '1' || p.get('cinema') === 'true') && !cinemaMode) toggleCinema();
-    syncSettingsUI();
-    if (p.has('path')) {
-        const mode = p.get('path');
-        const dur = (parseFloat(p.get('duration')) || 60) * 1000;
-        const loop = p.has('loop') ? (p.get('loop') !== '0') : (mode === 'orbit' || mode === 'coverageLoop');
-        cameraPath.loop = loop;
-        startCameraPath({ mode, dur, loop, easing: 'cinematic' });
-    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1620,8 +1271,10 @@ function restoreScene(snap) {
     Object.assign(settings, snap.settings);
 
     satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity);
-    refreshTrailMaterialUniforms();
-    setTrailMode(settings.trailMode || 'orbit');
+    for (const k of CONSTELLATION_ORDER) {
+        trailMaterials[k].uniforms.uOpacity.value = 0.3 * settings.trailOpacity;
+        trailMaterials[k].linewidth = settings.trailWidth ?? 1.0;
+    }
     if (stars) stars.material.uniforms.uIntensity.value = settings.starIntensity;
     if (atmosphereMesh) atmosphereMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
     if (outerGlowMesh) outerGlowMesh.material.uniforms.uAtmoScale.value = settings.atmosphereScale;
@@ -1663,9 +1316,7 @@ function syncSettingsUI() {
     setSlider('sl-alt', 'val-alt', settings.altScale, v => v.toFixed(1)+'\u00d7');
     setSlider('sl-trail-len', 'val-trail-len', settings.trailLenScale, v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
     setSlider('sl-trail-op', 'val-trail-op', settings.trailOpacity, v => v.toFixed(2)+'\u00d7');
-    setSlider('sl-trail-w', 'val-trail-w', settings.trailWidth, v => v.toFixed(1)+'\u00d7');
-    setSlider('sl-cov-hours', 'val-cov-hours', settings.coverageHours, v => v.toFixed(1)+'h');
-    setSlider('sl-cov-persist', 'val-cov-persist', settings.coveragePersistence, v => v.toFixed(2));
+    setSlider('sl-trail-w', 'val-trail-w', settings.trailWidth, v => v.toFixed(1));
     setSlider('sl-rotate', 'val-rotate', settings.rotateSpeed, v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
     setSlider('sl-stars', 'val-stars', settings.starIntensity, v => v.toFixed(2));
     setSlider('sl-atmo', 'val-atmo', settings.atmosphereScale, v => v.toFixed(1)+'\u00d7');
@@ -1690,14 +1341,6 @@ function syncSettingsUI() {
     if (clockDate) clockDate.style.fontSize = (9.5 * (settings.clockScale || 1)) + 'px';
     const btnDN = document.getElementById('btn-daynight');
     if (btnDN) { btnDN.textContent = settings.dayNightCycle ? 'ON' : 'OFF'; btnDN.classList.toggle('on', settings.dayNightCycle); }
-
-    const selTM = document.getElementById('sel-trail-mode');
-    if (selTM) selTM.value = settings.trailMode || 'orbit';
-    const covCtl = document.getElementById('coverage-controls');
-    if (covCtl) covCtl.style.display = settings.trailMode === 'coverageWrap' ? '' : 'none';
-    const btnLoop = document.getElementById('btn-cam-loop');
-    if (btnLoop) { btnLoop.textContent = cameraPath.loop ? 'ON' : 'OFF'; btnLoop.classList.toggle('on', cameraPath.loop); }
-    updateCamPathStatus();
 
     syncVisToggles(); syncCards();
 }
@@ -1778,8 +1421,12 @@ function wireSettings() {
     bind('sl-dot-op', 'val-dot-op', 'dotOpacity', v => v.toFixed(2), () => satRenderer?.setUniforms(settings.dotScale, settings.glowScale, settings.dotOpacity));
     bind('sl-alt', 'val-alt', 'altScale', v => v.toFixed(1)+'\u00d7');
     bind('sl-trail-len', 'val-trail-len', 'trailLenScale', v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7', () => { _lastTrailSimTime = 0; });
-    bind('sl-trail-op', 'val-trail-op', 'trailOpacity', v => v.toFixed(2)+'\u00d7', refreshTrailMaterialUniforms);
-    bind('sl-trail-w', 'val-trail-w', 'trailWidth', v => v.toFixed(1)+'\u00d7', refreshTrailMaterialUniforms);
+    bind('sl-trail-op', 'val-trail-op', 'trailOpacity', v => v.toFixed(2)+'\u00d7', () => {
+        for (const k of CONSTELLATION_ORDER) trailMaterials[k].uniforms.uOpacity.value = 0.3 * settings.trailOpacity;
+    });
+    bind('sl-trail-w', 'val-trail-w', 'trailWidth', v => v.toFixed(1), () => {
+        for (const k of CONSTELLATION_ORDER) trailMaterials[k].linewidth = settings.trailWidth;
+    });
     bind('sl-rotate', 'val-rotate', 'rotateSpeed', v => v === 0 ? 'Off' : v.toFixed(1)+'\u00d7');
 
     const fovSl = document.getElementById('sl-fov'), fovVal = document.getElementById('val-fov');
@@ -1836,45 +1483,8 @@ function wireSettings() {
         if (earthMesh) earthMesh.material.uniforms.uDayNight.value = settings.dayNightCycle ? 1.0 : 0.0;
     });
 
-    document.getElementById('btn-jump-epoch').addEventListener('click', () => { if (tleEpoch) { simTimeMs = tleEpoch.getTime(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; if (settings.trailMode === 'coverageWrap') { seedCoverage(); updateCoverageGeometry(); } } });
-    document.getElementById('btn-jump-now').addEventListener('click', () => { simTimeMs = Date.now(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; if (settings.trailMode === 'coverageWrap') { seedCoverage(); updateCoverageGeometry(); } });
-
-    // --- v3: trail mode + coverage wrap ---
-    const selTrailMode = document.getElementById('sel-trail-mode');
-    selTrailMode.value = settings.trailMode;
-    document.getElementById('coverage-controls').style.display = settings.trailMode === 'coverageWrap' ? '' : 'none';
-    selTrailMode.addEventListener('change', () => {
-        setTrailMode(selTrailMode.value);
-        document.getElementById('coverage-controls').style.display = settings.trailMode === 'coverageWrap' ? '' : 'none';
-    });
-    bind('sl-cov-hours', 'val-cov-hours', 'coverageHours', v => v.toFixed(1) + 'h', () => { if (settings.trailMode === 'coverageWrap') { seedCoverage(); updateCoverageGeometry(); } });
-    bind('sl-cov-persist', 'val-cov-persist', 'coveragePersistence', v => v.toFixed(2), refreshTrailMaterialUniforms);
-    document.getElementById('btn-cov-reseed').addEventListener('click', () => { initCoverage(); seedCoverage(); updateCoverageGeometry(); });
-
-    // --- v3: texture quality ---
-    const selTex = document.getElementById('sel-texture');
-    if (selTex) { selTex.value = ACTIVE_TEXTURE_PRESET; selTex.addEventListener('change', () => swapTexture(selTex.value)); }
-
-    // --- v3: hands-off camera path ---
-    document.getElementById('cam-dur').addEventListener('keydown', e => e.stopPropagation());
-    document.getElementById('btn-cam-a').addEventListener('click', () => { viewA = captureView(); updateCamPathStatus(); });
-    document.getElementById('btn-cam-b').addEventListener('click', () => { viewB = captureView(); updateCamPathStatus(); });
-    document.getElementById('btn-cam-loop').addEventListener('click', () => {
-        cameraPath.loop = !cameraPath.loop;
-        const b = document.getElementById('btn-cam-loop');
-        b.textContent = cameraPath.loop ? 'ON' : 'OFF';
-        b.classList.toggle('on', cameraPath.loop);
-    });
-    document.getElementById('btn-cam-play').addEventListener('click', () => {
-        if (cameraPath.active) { stopCameraPath(); return; }
-        const mode = document.getElementById('sel-cam-path').value;
-        const dur = (parseFloat(document.getElementById('cam-dur').value) || 45) * 1000;
-        const easing = document.getElementById('sel-cam-ease').value;
-        startCameraPath({ mode, dur, easing, loop: cameraPath.loop });
-    });
-
-    // --- v3: presentation presets ---
-    buildPresetButtons();
+    document.getElementById('btn-jump-epoch').addEventListener('click', () => { if (tleEpoch) { simTimeMs = tleEpoch.getTime(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; } });
+    document.getElementById('btn-jump-now').addEventListener('click', () => { simTimeMs = Date.now(); timelineCenter = simTimeMs; updateTimelineTicks(); _lastTrailSimTime = 0; });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1915,128 +1525,6 @@ function updateTooltip() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// CAMERA CHOREOGRAPHY (hands-off recording paths)
-// ════════════════════════════════════════════════════════════════
-// Frame an A view and a B view (or pick a path type), set a duration, press
-// Play, and the camera flies itself for clean Camtasia captures with no input.
-
-const EASINGS = {
-    linear:    t => t,
-    smooth:    t => t * t * (3 - 2 * t),
-    cinematic: t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
-    easeInOut: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
-    hold:      t => { const h = 0.25; return t < h ? 0 : EASINGS.smooth((t - h) / (1 - h)); }
-};
-
-const cameraPath = {
-    active: false, t0: 0, dur: 45000, mode: 'orbit', easing: 'cinematic',
-    loop: false, pingpong: true, orbitDeg: 70, _orbitAngle: 0,
-    from: null, to: null
-};
-let viewA = null, viewB = null;
-
-function captureView() {
-    return { pos: camera.position.toArray(), target: controls.target.toArray(), fov: camera.fov };
-}
-function cloneView(v) { return { pos: v.pos.slice(), target: v.target.slice(), fov: v.fov }; }
-
-function deriveViews(mode) {
-    const cur = captureView();
-    if (mode === 'flyBetween') return { from: viewA ? cloneView(viewA) : cur, to: viewB ? cloneView(viewB) : cur };
-    if (mode === 'orbit' || mode === 'coverageLoop') return { from: cur, to: cur };
-    if (mode === 'pushIn' || mode === 'pullBack') {
-        const dir = new THREE.Vector3().fromArray(cur.pos).sub(new THREE.Vector3().fromArray(cur.target));
-        const len = dir.length(); dir.normalize();
-        const tgt = new THREE.Vector3().fromArray(cur.target);
-        const wide = tgt.clone().addScaledVector(dir, Math.min(len * 1.85, controls.maxDistance));
-        const close = tgt.clone().addScaledVector(dir, Math.max(len * 0.55, controls.minDistance * 1.05));
-        const a = cloneView(cur), b = cloneView(cur);
-        a.pos = wide.toArray(); a.fov = cur.fov;
-        b.pos = close.toArray(); b.fov = Math.max(28, cur.fov - 8);
-        return mode === 'pushIn' ? { from: a, to: b } : { from: b, to: a };
-    }
-    return { from: cur, to: cur };
-}
-
-function startCameraPath(opts = {}) {
-    if (opts.dur != null) cameraPath.dur = opts.dur;
-    if (opts.mode) cameraPath.mode = opts.mode;
-    if (opts.easing) cameraPath.easing = opts.easing;
-    if (opts.loop != null) cameraPath.loop = opts.loop;
-    if (opts.orbitDeg != null) cameraPath.orbitDeg = opts.orbitDeg;
-    const dv = deriveViews(cameraPath.mode);
-    cameraPath.from = dv.from; cameraPath.to = dv.to;
-    cameraPath._orbitAngle = 0;
-    cameraPath.t0 = performance.now();
-    cameraPath.active = true;
-    controls.enabled = false;
-    if (cameraPath.mode === 'coverageLoop' && settings.trailMode !== 'coverageWrap') {
-        setTrailMode('coverageWrap');
-        syncSettingsUI();
-    }
-    updateCamPathStatus();
-}
-function stopCameraPath() {
-    if (!cameraPath.active) return;
-    cameraPath.active = false;
-    controls.enabled = true;
-    controls.update();
-    updateCamPathStatus();
-}
-
-const _cpFrom = new THREE.Vector3(), _cpTo = new THREE.Vector3(), _cpPos = new THREE.Vector3();
-const _cpFromT = new THREE.Vector3(), _cpToT = new THREE.Vector3(), _cpTgt = new THREE.Vector3();
-
-function applyABFrame(raw, ease) {
-    const e = ease(raw);
-    _cpFrom.fromArray(cameraPath.from.pos); _cpTo.fromArray(cameraPath.to.pos);
-    _cpFromT.fromArray(cameraPath.from.target); _cpToT.fromArray(cameraPath.to.target);
-    _cpPos.lerpVectors(_cpFrom, _cpTo, e); _cpTgt.lerpVectors(_cpFromT, _cpToT, e);
-    camera.position.copy(_cpPos); controls.target.copy(_cpTgt);
-    camera.fov = cameraPath.from.fov + (cameraPath.to.fov - cameraPath.from.fov) * e;
-    camera.updateProjectionMatrix();
-    camera.lookAt(controls.target);
-}
-
-function runCameraPath(ts, dt) {
-    if (!cameraPath.active) return false;
-    const orbitLike = cameraPath.mode === 'orbit' || cameraPath.mode === 'coverageLoop';
-    if (orbitLike) {
-        cameraPath._orbitAngle += (cameraPath.orbitDeg * DEG) * (dt / cameraPath.dur);
-        _cpFrom.fromArray(cameraPath.from.pos); _cpFromT.fromArray(cameraPath.from.target);
-        const ox = _cpFrom.x - _cpFromT.x, oy = _cpFrom.y - _cpFromT.y, oz = _cpFrom.z - _cpFromT.z;
-        const a = cameraPath._orbitAngle, cos = Math.cos(a), sin = Math.sin(a);
-        camera.position.set(_cpFromT.x + (ox * cos - oz * sin), _cpFromT.y + oy, _cpFromT.z + (ox * sin + oz * cos));
-        controls.target.copy(_cpFromT);
-        camera.lookAt(controls.target);
-        if (!cameraPath.loop && (ts - cameraPath.t0) >= cameraPath.dur) stopCameraPath();
-        return true;
-    }
-    const ease = EASINGS[cameraPath.easing] || EASINGS.smooth;
-    let raw = (ts - cameraPath.t0) / cameraPath.dur;
-    if (raw >= 1) {
-        if (cameraPath.loop) {
-            if (cameraPath.pingpong) { const t = cameraPath.from; cameraPath.from = cameraPath.to; cameraPath.to = t; }
-            cameraPath.t0 = ts; raw = 0;
-        } else { applyABFrame(1, ease); stopCameraPath(); return true; }
-    }
-    applyABFrame(Math.max(0, Math.min(raw, 1)), ease);
-    return true;
-}
-
-function updateCamPathStatus() {
-    const el = document.getElementById('cam-path-status');
-    if (el) {
-        const tags = [];
-        if (viewA) tags.push('A set');
-        if (viewB) tags.push('B set');
-        el.textContent = cameraPath.active ? `Playing: ${cameraPath.mode}${cameraPath.loop ? ' (loop)' : ''}` : (tags.join(' \u00b7 ') || 'Idle');
-    }
-    const play = document.getElementById('btn-cam-play');
-    if (play) play.textContent = cameraPath.active ? 'Stop' : 'Play';
-}
-
-// ════════════════════════════════════════════════════════════════
 // ANIMATION LOOP
 // ════════════════════════════════════════════════════════════════
 
@@ -2071,30 +1559,19 @@ function animate(ts) {
         if (settings.showLabels) updateLabelPositions();
     }
     if (_labelsDirty) rebuildLabels();
-    if (ts - lastTrailUpdate > trailInterval()) {
-        updateTrailGeometry();
-        if (coverageInited && settings.trailMode === 'coverageWrap') {
-            if (Math.abs(simTimeMs - _lastCovSampleSim) >= settings.coverageSampleSec * 1000) { sampleCoverage(); _lastCovSampleSim = simTimeMs; }
-            updateCoverageGeometry();
-        }
-        lastTrailUpdate = ts;
-    }
+    if (ts - lastTrailUpdate > trailInterval()) { updateTrailGeometry(); lastTrailUpdate = ts; }
     if (ts - lastUIUpdate > 100) { updateTimelineUI(); updateTooltip(); lastUIUpdate = ts; }
 
-    updateTrailCamUniforms();
-
-    const pathActive = runCameraPath(ts, dt);
-    if (!pathActive && cinemaMode && settings.rotateSpeed > 0) {
-        // Rotate around the controls target without fighting OrbitControls damping (no lookAt clash).
+    if (cinemaMode && settings.rotateSpeed > 0) {
         const angle = dt * 0.00008 * settings.rotateSpeed;
-        const cos = Math.cos(angle), sin = Math.sin(angle);
-        const ox = camera.position.x - controls.target.x;
-        const oz = camera.position.z - controls.target.z;
-        camera.position.x = controls.target.x + (ox * cos - oz * sin);
-        camera.position.z = controls.target.z + (ox * sin + oz * cos);
+        const pos = camera.position;
+        const x = pos.x * Math.cos(angle) - pos.z * Math.sin(angle);
+        const z = pos.x * Math.sin(angle) + pos.z * Math.cos(angle);
+        camera.position.set(x, pos.y, z);
+        camera.lookAt(0, 0, 0);
     }
 
-    if (controls.enabled) controls.update();
+    controls.update();
     renderer.render(scene, camera);
 }
 
@@ -2131,7 +1608,6 @@ document.addEventListener('keydown', e => {
     if (e.key === 'r' || e.key === 'R') toggleRecording();
     if (e.key === 's' || e.key === 'S') { document.getElementById('settings-panel').classList.toggle('open'); document.getElementById('settings-toggle').classList.toggle('open'); }
     if (e.key === 'l' || e.key === 'L') document.getElementById('btn-labels').click();
-    if (e.key === 'p' || e.key === 'P') document.getElementById('btn-cam-play').click();
     if (e.key === 'ArrowUp') setSpeed(Math.min(simSpeed <= 10 ? simSpeed + 1 : Math.round(simSpeed * 1.5), 7200));
     if (e.key === 'ArrowDown') setSpeed(Math.max(simSpeed <= 10 ? simSpeed - 1 : Math.round(simSpeed / 1.5), 1));
     if (e.key === 'ArrowLeft') { simTimeMs -= 600000; _lastTrailSimTime = 0; }
@@ -2175,7 +1651,6 @@ async function init() {
         updateSatPositions();
         updateTrailGeometry();
         updateTimelineUI();
-        applyUrlParams();
 
         document.getElementById('loading').classList.add('hidden');
         requestAnimationFrame(animate);
@@ -2184,24 +1659,6 @@ async function init() {
         console.error('Init failed:', err);
     }
 }
-
-// Debug/automation hook (used by smoke tests and the headless renderer).
-window.__viewer = {
-    get ready() { return document.getElementById('loading').classList.contains('hidden'); },
-    get satCount() { return allSatellites.length; },
-    get counts() { const c = {}; allSatellites.forEach(s => c[s.constellation] = (c[s.constellation] || 0) + 1); return c; },
-    get trailMode() { return settings.trailMode; },
-    get coverageInited() { return coverageInited; },
-    get coverageSegments() { let n = 0; if (coverageInited) for (const s of allSatellites) if (s._covLine && s._covLine.visible) n += s._covGeo.drawRange.count; return n; },
-    get cameraPath() { return { active: cameraPath.active, mode: cameraPath.mode, loop: cameraPath.loop }; },
-    get cinema() { return cinemaMode; },
-    get tleSource() { return tleSource; },
-    get epochAgeHours() { return tleEpoch ? (Date.now() - tleEpoch.getTime()) / 3600000 : null; },
-    setTrailMode: (m) => { setTrailMode(m); syncSettingsUI(); },
-    startPath: (o) => startCameraPath(o),
-    stopPath: () => stopCameraPath(),
-    applyPreset: (n) => applyPresentationPreset(n)
-};
 
 init();
 </script>
